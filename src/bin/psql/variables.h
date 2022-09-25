@@ -28,7 +28,7 @@
  * yet).  But its return value is ignored in this case.  The hook should be
  * set before any possibly-invalid value can be assigned.
  */
-typedef bool (*VariableAssignHook) (const char *newval);
+typedef bool (*VariableAssignHook)(const char *newval);
 
 /*
  * Variables can also be given "substitute hook" functions.  The substitute
@@ -51,7 +51,7 @@ typedef bool (*VariableAssignHook) (const char *newval);
  * to the variable's current value (typically NULL, if it wasn't set yet).
  * That also happens before applying the assign hook.
  */
-typedef char *(*VariableSubstituteHook) (char *newval);
+typedef char *(*VariableSubstituteHook)(char *newval);
 
 /*
  * Data structure representing one variable.
@@ -59,39 +59,33 @@ typedef char *(*VariableSubstituteHook) (char *newval);
  * Note: if value == NULL then the variable is logically unset, but we are
  * keeping the struct around so as not to forget about its hook function(s).
  */
-struct _variable
-{
-	char	   *name;
-	char	   *value;
-	VariableSubstituteHook substitute_hook;
-	VariableAssignHook assign_hook;
-	struct _variable *next;
+struct _variable {
+  char *name;
+  char *value;
+  VariableSubstituteHook substitute_hook;
+  VariableAssignHook assign_hook;
+  struct _variable *next;
 };
 
 /* Data structure representing a set of variables */
 typedef struct _variable *VariableSpace;
 
-
 VariableSpace CreateVariableSpace(void);
 const char *GetVariable(VariableSpace space, const char *name);
 
-bool		ParseVariableBool(const char *value, const char *name,
-							  bool *result);
+bool ParseVariableBool(const char *value, const char *name, bool *result);
 
-bool		ParseVariableNum(const char *value, const char *name,
-							 int *result);
+bool ParseVariableNum(const char *value, const char *name, int *result);
 
-void		PrintVariables(VariableSpace space);
+void PrintVariables(VariableSpace space);
 
-bool		SetVariable(VariableSpace space, const char *name, const char *value);
-bool		SetVariableBool(VariableSpace space, const char *name);
-bool		DeleteVariable(VariableSpace space, const char *name);
+bool SetVariable(VariableSpace space, const char *name, const char *value);
+bool SetVariableBool(VariableSpace space, const char *name);
+bool DeleteVariable(VariableSpace space, const char *name);
 
-void		SetVariableHooks(VariableSpace space, const char *name,
-							 VariableSubstituteHook shook,
-							 VariableAssignHook ahook);
-bool		VariableHasHook(VariableSpace space, const char *name);
+void SetVariableHooks(VariableSpace space, const char *name, VariableSubstituteHook shook, VariableAssignHook ahook);
+bool VariableHasHook(VariableSpace space, const char *name);
 
-void		PsqlVarEnumError(const char *name, const char *value, const char *suggestions);
+void PsqlVarEnumError(const char *name, const char *value, const char *suggestions);
 
-#endif							/* VARIABLES_H */
+#endif /* VARIABLES_H */

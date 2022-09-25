@@ -1,17 +1,10 @@
-/*
- * psql - the PostgreSQL interactive terminal
- *
- * Copyright (c) 2000-2022, PostgreSQL Global Development Group
- *
- * src/bin/psql/stringutils.c
- */
+
 #include "postgres_fe.h"
 
 #include <ctype.h>
 
 #include "common.h"
 #include "stringutils.h"
-
 
 /*
  * Replacement for strtok() (a.k.a. poor man's flex)
@@ -48,183 +41,147 @@
  * next on a single source string, but changing whitespace is a bad idea
  * since you might lose data.
  */
-char *
-strtokx(const char *s,
-		const char *whitespace,
-		const char *delim,
-		const char *quote,
-		char escape,
-		bool e_strings,
-		bool del_quotes,
-		int encoding)
-{
-	static char *storage = NULL;	/* store the local copy of the users
-									 * string here */
-	static char *string = NULL; /* pointer into storage where to continue on
-								 * next call */
+char *strtokx(const char *s, const char *whitespace, const char *delim, const char *quote, char escape, bool e_strings,
+              bool del_quotes, int encoding) {
+  static char *storage = NULL; /* store the local copy of the users
+                                * string here */
+  static char *string = NULL;  /* pointer into storage where to continue on
+                                * next call */
 
-	/* variously abused variables: */
-	unsigned int offset;
-	char	   *start;
-	char	   *p;
+  /* variously abused variables: */
+  unsigned int offset;
+  char *start;
+  char *p;
 
-	if (s)
-	{
-		free(storage);
+  if (s) {
+    free(storage);
 
-		/*
-		 * We may need extra space to insert delimiter nulls for adjacent
-		 * tokens.  2X the space is a gross overestimate, but it's unlikely
-		 * that this code will be used on huge strings anyway.
-		 */
-		storage = pg_malloc(2 * strlen(s) + 1);
-		strcpy(storage, s);
-		string = storage;
-	}
+    /*
+     * We may need extra space to insert delimiter nulls for adjacent
+     * tokens.  2X the space is a gross overestimate, but it's unlikely
+     * that this code will be used on huge strings anyway.
+     */
+    storage = pg_malloc(2 * strlen(s) + 1);
+    strcpy(storage, s);
+    string = storage;
+  }
 
-	if (!storage)
-		return NULL;
+  if (!storage) return NULL;
 
-	/* skip leading whitespace */
-	offset = strspn(string, whitespace);
-	start = &string[offset];
+  /* skip leading whitespace */
+  offset = strspn(string, whitespace);
+  start = &string[offset];
 
-	/* end of string reached? */
-	if (*start == '\0')
-	{
-		/* technically we don't need to free here, but we're nice */
-		free(storage);
-		storage = NULL;
-		string = NULL;
-		return NULL;
-	}
+  /* end of string reached? */
+  if (*start == '\0') {
+    /* technically we don't need to free here, but we're nice */
+    free(storage);
+    storage = NULL;
+    string = NULL;
+    return NULL;
+  }
 
-	/* test if delimiter character */
-	if (delim && strchr(delim, *start))
-	{
-		/*
-		 * If not at end of string, we need to insert a null to terminate the
-		 * returned token.  We can just overwrite the next character if it
-		 * happens to be in the whitespace set ... otherwise move over the
-		 * rest of the string to make room.  (This is why we allocated extra
-		 * space above).
-		 */
-		p = start + 1;
-		if (*p != '\0')
-		{
-			if (!strchr(whitespace, *p))
-				memmove(p + 1, p, strlen(p) + 1);
-			*p = '\0';
-			string = p + 1;
-		}
-		else
-		{
-			/* at end of string, so no extra work */
-			string = p;
-		}
+  /* test if delimiter character */
+  if (delim && strchr(delim, *start)) {
+    /*
+     * If not at end of string, we need to insert a null to terminate the
+     * returned token.  We can just overwrite the next character if it
+     * happens to be in the whitespace set ... otherwise move over the
+     * rest of the string to make room.  (This is why we allocated extra
+     * space above).
+     */
+    p = start + 1;
+    if (*p != '\0') {
+      if (!strchr(whitespace, *p)) memmove(p + 1, p, strlen(p) + 1);
+      *p = '\0';
+      string = p + 1;
+    } else {
+      /* at end of string, so no extra work */
+      string = p;
+    }
 
-		return start;
-	}
+    return start;
+  }
 
-	/* check for E string */
-	p = start;
-	if (e_strings &&
-		(*p == 'E' || *p == 'e') &&
-		p[1] == '\'')
-	{
-		quote = "'";
-		escape = '\\';			/* if std strings before, not any more */
-		p++;
-	}
+  /* check for E string */
+  p = start;
+  if (e_strings && (*p == 'E' || *p == 'e') && p[1] == '\'') {
+    quote = "'";
+    escape = '\\'; /* if std strings before, not any more */
+    p++;
+  }
 
-	/* test if quoting character */
-	if (quote && strchr(quote, *p))
-	{
-		/* okay, we have a quoted token, now scan for the closer */
-		char		thisquote = *p++;
+  /* test if quoting character */
+  if (quote && strchr(quote, *p)) {
+    /* okay, we have a quoted token, now scan for the closer */
+    char thisquote = *p++;
 
-		for (; *p; p += PQmblenBounded(p, encoding))
-		{
-			if (*p == escape && p[1] != '\0')
-				p++;			/* process escaped anything */
-			else if (*p == thisquote && p[1] == thisquote)
-				p++;			/* process doubled quote */
-			else if (*p == thisquote)
-			{
-				p++;			/* skip trailing quote */
-				break;
-			}
-		}
+    for (; *p; p += PQmblenBounded(p, encoding)) {
+      if (*p == escape && p[1] != '\0')
+        p++; /* process escaped anything */
+      else if (*p == thisquote && p[1] == thisquote)
+        p++; /* process doubled quote */
+      else if (*p == thisquote) {
+        p++; /* skip trailing quote */
+        break;
+      }
+    }
 
-		/*
-		 * If not at end of string, we need to insert a null to terminate the
-		 * returned token.  See notes above.
-		 */
-		if (*p != '\0')
-		{
-			if (!strchr(whitespace, *p))
-				memmove(p + 1, p, strlen(p) + 1);
-			*p = '\0';
-			string = p + 1;
-		}
-		else
-		{
-			/* at end of string, so no extra work */
-			string = p;
-		}
+    /*
+     * If not at end of string, we need to insert a null to terminate the
+     * returned token.  See notes above.
+     */
+    if (*p != '\0') {
+      if (!strchr(whitespace, *p)) memmove(p + 1, p, strlen(p) + 1);
+      *p = '\0';
+      string = p + 1;
+    } else {
+      /* at end of string, so no extra work */
+      string = p;
+    }
 
-		/* Clean up the token if caller wants that */
-		if (del_quotes)
-			strip_quotes(start, thisquote, escape, encoding);
+    /* Clean up the token if caller wants that */
+    if (del_quotes) strip_quotes(start, thisquote, escape, encoding);
 
-		return start;
-	}
+    return start;
+  }
 
-	/*
-	 * Otherwise no quoting character.  Scan till next whitespace, delimiter
-	 * or quote.  NB: at this point, *start is known not to be '\0',
-	 * whitespace, delim, or quote, so we will consume at least one character.
-	 */
-	offset = strcspn(start, whitespace);
+  /*
+   * Otherwise no quoting character.  Scan till next whitespace, delimiter
+   * or quote.  NB: at this point, *start is known not to be '\0',
+   * whitespace, delim, or quote, so we will consume at least one character.
+   */
+  offset = strcspn(start, whitespace);
 
-	if (delim)
-	{
-		unsigned int offset2 = strcspn(start, delim);
+  if (delim) {
+    unsigned int offset2 = strcspn(start, delim);
 
-		if (offset > offset2)
-			offset = offset2;
-	}
+    if (offset > offset2) offset = offset2;
+  }
 
-	if (quote)
-	{
-		unsigned int offset2 = strcspn(start, quote);
+  if (quote) {
+    unsigned int offset2 = strcspn(start, quote);
 
-		if (offset > offset2)
-			offset = offset2;
-	}
+    if (offset > offset2) offset = offset2;
+  }
 
-	p = start + offset;
+  p = start + offset;
 
-	/*
-	 * If not at end of string, we need to insert a null to terminate the
-	 * returned token.  See notes above.
-	 */
-	if (*p != '\0')
-	{
-		if (!strchr(whitespace, *p))
-			memmove(p + 1, p, strlen(p) + 1);
-		*p = '\0';
-		string = p + 1;
-	}
-	else
-	{
-		/* at end of string, so no extra work */
-		string = p;
-	}
+  /*
+   * If not at end of string, we need to insert a null to terminate the
+   * returned token.  See notes above.
+   */
+  if (*p != '\0') {
+    if (!strchr(whitespace, *p)) memmove(p + 1, p, strlen(p) + 1);
+    *p = '\0';
+    string = p + 1;
+  } else {
+    /* at end of string, so no extra work */
+    string = p;
+  }
 
-	return start;
+  return start;
 }
-
 
 /*
  * strip_quotes
@@ -236,40 +193,34 @@ strtokx(const char *s,
  *
  * Note that the source string is overwritten in-place.
  */
-void
-strip_quotes(char *source, char quote, char escape, int encoding)
-{
-	char	   *src;
-	char	   *dst;
+void strip_quotes(char *source, char quote, char escape, int encoding) {
+  char *src;
+  char *dst;
 
-	Assert(source != NULL);
-	Assert(quote != '\0');
+  Assert(source != NULL);
+  Assert(quote != '\0');
 
-	src = dst = source;
+  src = dst = source;
 
-	if (*src && *src == quote)
-		src++;					/* skip leading quote */
+  if (*src && *src == quote) src++; /* skip leading quote */
 
-	while (*src)
-	{
-		char		c = *src;
-		int			i;
+  while (*src) {
+    char c = *src;
+    int i;
 
-		if (c == quote && src[1] == '\0')
-			break;				/* skip trailing quote */
-		else if (c == quote && src[1] == quote)
-			src++;				/* process doubled quote */
-		else if (c == escape && src[1] != '\0')
-			src++;				/* process escaped character */
+    if (c == quote && src[1] == '\0')
+      break; /* skip trailing quote */
+    else if (c == quote && src[1] == quote)
+      src++; /* process doubled quote */
+    else if (c == escape && src[1] != '\0')
+      src++; /* process escaped character */
 
-		i = PQmblenBounded(src, encoding);
-		while (i--)
-			*dst++ = *src++;
-	}
+    i = PQmblenBounded(src, encoding);
+    while (i--) *dst++ = *src++;
+  }
 
-	*dst = '\0';
+  *dst = '\0';
 }
-
 
 /*
  * quote_if_needed
@@ -288,55 +239,45 @@ strip_quotes(char *source, char quote, char escape, int encoding)
  * Do not use this as a substitute for PQescapeStringConn().  Use it for
  * strings to be parsed by strtokx() or psql_scan_slash_option().
  */
-char *
-quote_if_needed(const char *source, const char *entails_quote,
-				char quote, char escape, bool force_quote,
-				int encoding)
-{
-	const char *src;
-	char	   *ret;
-	char	   *dst;
-	bool		need_quotes = force_quote;
+char *quote_if_needed(const char *source, const char *entails_quote, char quote, char escape, bool force_quote,
+                      int encoding) {
+  const char *src;
+  char *ret;
+  char *dst;
+  bool need_quotes = force_quote;
 
-	Assert(source != NULL);
-	Assert(quote != '\0');
+  Assert(source != NULL);
+  Assert(quote != '\0');
 
-	src = source;
-	dst = ret = pg_malloc(2 * strlen(src) + 3); /* excess */
+  src = source;
+  dst = ret = pg_malloc(2 * strlen(src) + 3); /* excess */
 
-	*dst++ = quote;
+  *dst++ = quote;
 
-	while (*src)
-	{
-		char		c = *src;
-		int			i;
+  while (*src) {
+    char c = *src;
+    int i;
 
-		if (c == quote)
-		{
-			need_quotes = true;
-			*dst++ = quote;
-		}
-		else if (c == escape)
-		{
-			need_quotes = true;
-			*dst++ = escape;
-		}
-		else if (strchr(entails_quote, c))
-			need_quotes = true;
+    if (c == quote) {
+      need_quotes = true;
+      *dst++ = quote;
+    } else if (c == escape) {
+      need_quotes = true;
+      *dst++ = escape;
+    } else if (strchr(entails_quote, c))
+      need_quotes = true;
 
-		i = PQmblenBounded(src, encoding);
-		while (i--)
-			*dst++ = *src++;
-	}
+    i = PQmblenBounded(src, encoding);
+    while (i--) *dst++ = *src++;
+  }
 
-	*dst++ = quote;
-	*dst = '\0';
+  *dst++ = quote;
+  *dst = '\0';
 
-	if (!need_quotes)
-	{
-		free(ret);
-		ret = NULL;
-	}
+  if (!need_quotes) {
+    free(ret);
+    ret = NULL;
+  }
 
-	return ret;
+  return ret;
 }

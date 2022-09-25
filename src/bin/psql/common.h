@@ -1,10 +1,4 @@
-/*
- * psql - the PostgreSQL interactive terminal
- *
- * Copyright (c) 2000-2022, PostgreSQL Global Development Group
- *
- * src/bin/psql/common.h
- */
+
 #ifndef COMMON_H
 #define COMMON_H
 
@@ -17,8 +11,7 @@
 extern bool openQueryOutputFile(const char *fname, FILE **fout, bool *is_pipe);
 extern bool setQFout(const char *fname);
 
-extern char *psql_get_variable(const char *varname, PsqlScanQuoteType quote,
-							   void *passthrough);
+extern char *psql_get_variable(const char *varname, PsqlScanQuoteType quote, void *passthrough);
 
 extern void NoticeProcessor(void *arg, const char *message);
 
@@ -29,7 +22,7 @@ extern sigjmp_buf sigint_interrupt_jmp;
 extern void psql_setup_cancel_handler(void);
 
 extern PGresult *PSQLexec(const char *query);
-extern int	PSQLexecWatch(const char *query, const printQueryOpt *opt, FILE *printQueryFout);
+extern int PSQLexecWatch(const char *query, const printQueryOpt *opt, FILE *printQueryFout);
 
 extern bool SendQuery(const char *query);
 
@@ -41,4 +34,4 @@ extern void expand_tilde(char **filename);
 
 extern bool recognized_connection_string(const char *connstr);
 
-#endif							/* COMMON_H */
+#endif /* COMMON_H */

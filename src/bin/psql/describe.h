@@ -1,13 +1,6 @@
-/*
- * psql - the PostgreSQL interactive terminal
- *
- * Copyright (c) 2000-2022, PostgreSQL Global Development Group
- *
- * src/bin/psql/describe.h
- */
+
 #ifndef DESCRIBE_H
 #define DESCRIBE_H
-
 
 /* \da */
 extern bool describeAggregates(const char *pattern, bool verbose, bool showSystem);
@@ -19,17 +12,15 @@ extern bool describeAccessMethods(const char *pattern, bool verbose);
 extern bool describeTablespaces(const char *pattern, bool verbose);
 
 /* \df, \dfa, \dfn, \dft, \dfw, etc. */
-extern bool describeFunctions(const char *functypes, const char *func_pattern,
-							  char **arg_patterns, int num_arg_patterns,
-							  bool verbose, bool showSystem);
+extern bool describeFunctions(const char *functypes, const char *func_pattern, char **arg_patterns,
+                              int num_arg_patterns, bool verbose, bool showSystem);
 
 /* \dT */
 extern bool describeTypes(const char *pattern, bool verbose, bool showSystem);
 
 /* \do */
-extern bool describeOperators(const char *oper_pattern,
-							  char **arg_patterns, int num_arg_patterns,
-							  bool verbose, bool showSystem);
+extern bool describeOperators(const char *oper_pattern, char **arg_patterns, int num_arg_patterns, bool verbose,
+                              bool showSystem);
 
 /* \du, \dg */
 extern bool describeRoles(const char *pattern, bool verbose, bool showSystem);
@@ -77,8 +68,7 @@ extern bool listDomains(const char *pattern, bool verbose, bool showSystem);
 extern bool listConversions(const char *pattern, bool verbose, bool showSystem);
 
 /* \dconfig */
-extern bool describeConfigurationParameters(const char *pattern, bool verbose,
-											bool showSystem);
+extern bool describeConfigurationParameters(const char *pattern, bool verbose, bool showSystem);
 
 /* \dC */
 extern bool listCasts(const char *pattern, bool verbose);
@@ -117,33 +107,27 @@ extern bool listExtendedStats(const char *pattern);
 extern bool listEventTriggers(const char *pattern, bool verbose);
 
 /* \dRp */
-bool		listPublications(const char *pattern);
+bool listPublications(const char *pattern);
 
 /* \dRp+ */
-bool		describePublications(const char *pattern);
+bool describePublications(const char *pattern);
 
 /* \dRs */
-bool		describeSubscriptions(const char *pattern, bool verbose);
+bool describeSubscriptions(const char *pattern, bool verbose);
 
 /* \dAc */
-extern bool listOperatorClasses(const char *access_method_pattern,
-								const char *opclass_pattern,
-								bool verbose);
+extern bool listOperatorClasses(const char *access_method_pattern, const char *opclass_pattern, bool verbose);
 
 /* \dAf */
-extern bool listOperatorFamilies(const char *access_method_pattern,
-								 const char *opclass_pattern,
-								 bool verbose);
+extern bool listOperatorFamilies(const char *access_method_pattern, const char *opclass_pattern, bool verbose);
 
 /* \dAo */
-extern bool listOpFamilyOperators(const char *accessMethod_pattern,
-								  const char *family_pattern, bool verbose);
+extern bool listOpFamilyOperators(const char *accessMethod_pattern, const char *family_pattern, bool verbose);
 
 /* \dAp */
-extern bool listOpFamilyFunctions(const char *access_method_pattern,
-								  const char *family_pattern, bool verbose);
+extern bool listOpFamilyFunctions(const char *access_method_pattern, const char *family_pattern, bool verbose);
 
 /* \dl or \lo_list */
 extern bool listLargeObjects(bool verbose);
 
-#endif							/* DESCRIBE_H */
+#endif /* DESCRIBE_H */
