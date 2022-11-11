@@ -23,8 +23,7 @@
 #endif /* HAVE_READLINE_READLINE_H, etc */
 #endif /* HAVE_LIBREADLINE */
 
-#include "pqexpbuffer.h"
-
+#include "psqlf.h"
 extern char *gets_interactive(const char *prompt, PQExpBuffer query_buf);
 extern char *gets_fromFile(FILE *source);
 

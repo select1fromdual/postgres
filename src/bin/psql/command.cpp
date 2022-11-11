@@ -1,5 +1,6 @@
 
-#include "postgres_fe.h"
+
+#include "psqlf.h"
 
 #include <ctype.h>
 #include <time.h>
@@ -10,26 +11,15 @@
 #include <fcntl.h>    /* open() flags */
 #include <unistd.h>   /* for geteuid(), getpid(), stat() */
 
-
-#include "catalog/pg_class_d.h"
 #include "command.h"
 #include "common.h"
-#include "common/logging.h"
-#include "common/string.h"
 #include "copy.h"
 #include "crosstabview.h"
 #include "describe.h"
-#include "fe_utils/cancel.h"
-#include "fe_utils/print.h"
-#include "fe_utils/string_utils.h"
 #include "help.h"
 #include "input.h"
 #include "large_obj.h"
-#include "libpq-fe.h"
-#include "libpq/pqcomm.h"
 #include "mainloop.h"
-#include "portability/instr_time.h"
-#include "pqexpbuffer.h"
 #include "psqlscanslash.h"
 #include "settings.h"
 #include "variables.h"
@@ -1941,7 +1931,7 @@ static backslashResult exec_command_set(PsqlScanState scan_state, bool active_br
       free(opt);
 
       while ((opt = psql_scan_slash_option(scan_state, OT_NORMAL, NULL, false))) {
-        newval = pg_realloc(newval, strlen(newval) + strlen(opt) + 1);
+        newval = (char*)realloc(newval, strlen(newval) + strlen(opt) + 1);
         strcat(newval, opt);
         free(opt);
       }
@@ -2764,8 +2754,8 @@ static bool do_connect(enum trivalue reuse_previous_specification, char *dbname,
 
   /* Loop till we have a connection or fail, which we might've already */
   while (success) {
-    const char **keywords = pg_malloc((nconnopts + 1) * sizeof(*keywords));
-    const char **values = pg_malloc((nconnopts + 1) * sizeof(*values));
+    char **keywords = (char **)malloc((nconnopts + 1) * sizeof(*keywords));
+    char **values = (char **)malloc((nconnopts + 1) * sizeof(*values));
     int paramnum = 0;
     PQconninfoOption *ci;
 
@@ -3949,7 +3939,7 @@ void restorePsetInfo(printQueryOpt *popt, printQueryOpt *save) {
 static const char *pset_bool_string(bool val) { return val ? "on" : "off"; }
 
 static char *pset_quoted_string(const char *str) {
-  char *ret = pg_malloc(strlen(str) * 2 + 3);
+  char *ret = (char *)malloc(strlen(str) * 2 + 3);
   char *r = ret;
 
   *r++ = '\'';
@@ -4181,7 +4171,7 @@ static bool do_watch(PQExpBuffer query_buf, double sleep) {
    */
   user_title = myopt.title;
   title_len = (user_title ? strlen(user_title) : 0) + 256;
-  title = pg_malloc(title_len);
+  title = (char *)malloc(title_len);
 
   for (;;) {
     time_t timer;

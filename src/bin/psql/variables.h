@@ -10,8 +10,10 @@
  *
  * src/bin/psql/variables.h
  */
-#ifndef VARIABLES_H
-#define VARIABLES_H
+#pragma once
+
+#include <functional>
+#include <unordered_map>
 
 /*
  * Variables can be given "assign hook" functions.  The assign hook can
@@ -28,7 +30,7 @@
  * yet).  But its return value is ignored in this case.  The hook should be
  * set before any possibly-invalid value can be assigned.
  */
-typedef bool (*VariableAssignHook)(const char *newval);
+using VariableAssignHook = std::function<bool(const char *newval)>;
 
 /*
  * Variables can also be given "substitute hook" functions.  The substitute
@@ -51,7 +53,7 @@ typedef bool (*VariableAssignHook)(const char *newval);
  * to the variable's current value (typically NULL, if it wasn't set yet).
  * That also happens before applying the assign hook.
  */
-typedef char *(*VariableSubstituteHook)(char *newval);
+using VariableSubstituteHook = std::function<char *(char *newval)>;
 
 /*
  * Data structure representing one variable.
@@ -60,11 +62,30 @@ typedef char *(*VariableSubstituteHook)(char *newval);
  * keeping the struct around so as not to forget about its hook function(s).
  */
 struct _variable {
-  char *name;
   char *value;
   VariableSubstituteHook substitute_hook;
   VariableAssignHook assign_hook;
-  struct _variable *next;
+};
+
+using variable = std::unordered_map<char *, _variable *>;
+
+class VariableSpace {
+ private:
+  variable variable_;
+
+ public:
+  variables() = default;
+  ~variables();
+
+  const char *GetVariable(const char *name) { return _variable[name].value; }
+  void PrintVariables() {
+    for (const auto &[key, value] : variable_) {
+      if (value->value) printf("%s = '%s'\n", key, value->value);
+      if (cancel_pressed) break;
+    }
+  }
+
+  bool SetVariable(VariableSpace space, const char *name, const char *value);
 };
 
 /* Data structure representing a set of variables */
@@ -87,5 +108,3 @@ void SetVariableHooks(VariableSpace space, const char *name, VariableSubstituteH
 bool VariableHasHook(VariableSpace space, const char *name);
 
 void PsqlVarEnumError(const char *name, const char *value, const char *suggestions);
-
-#endif /* VARIABLES_H */

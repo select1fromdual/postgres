@@ -5,8 +5,7 @@
  *
  * src/bin/psql/input.c
  */
-#include "postgres_fe.h"
-
+#include "psqlf.h"
 #ifndef WIN32
 #include <unistd.h>
 #endif
@@ -14,7 +13,6 @@
 #include <limits.h>
 
 #include "common.h"
-#include "common/logging.h"
 #include "input.h"
 #include "settings.h"
 #include "tab-complete.h"

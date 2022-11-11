@@ -1,6 +1,5 @@
 
-#include "postgres_fe.h"
-
+#include "psqlf.h"
 #include <ctype.h>
 
 #include "common.h"
@@ -61,7 +60,7 @@ char *strtokx(const char *s, const char *whitespace, const char *delim, const ch
      * tokens.  2X the space is a gross overestimate, but it's unlikely
      * that this code will be used on huge strings anyway.
      */
-    storage = pg_malloc(2 * strlen(s) + 1);
+    storage = (char*)malloc(2 * strlen(s) + 1);
     strcpy(storage, s);
     string = storage;
   }
@@ -250,7 +249,7 @@ char *quote_if_needed(const char *source, const char *entails_quote, char quote,
   Assert(quote != '\0');
 
   src = source;
-  dst = ret = pg_malloc(2 * strlen(src) + 3); /* excess */
+  dst = ret = (char*)malloc(2 * strlen(src) + 3); /* excess */
 
   *dst++ = quote;
 

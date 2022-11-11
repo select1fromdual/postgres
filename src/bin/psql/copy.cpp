@@ -1,15 +1,11 @@
 
-#include "postgres_fe.h"
 
 #include <signal.h>
 #include <sys/stat.h>
 #include <unistd.h> /* for isatty */
 
 #include "common.h"
-#include "common/logging.h"
 #include "copy.h"
-#include "libpq-fe.h"
-#include "pqexpbuffer.h"
 #include "prompt.h"
 #include "settings.h"
 #include "stringutils.h"
@@ -77,7 +73,7 @@ static struct copy_options *parse_slash_copy(const char *args) {
     return NULL;
   }
 
-  result = pg_malloc0(sizeof(struct copy_options));
+  result = (copy_options *)malloc(sizeof(struct copy_options));
 
   result->before_tofrom = pg_strdup(""); /* initialize for appending */
 

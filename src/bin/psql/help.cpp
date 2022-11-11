@@ -1,6 +1,5 @@
 
-#include "postgres_fe.h"
-
+#include "psqlf.h"
 #include <unistd.h> /* for geteuid() */
 
 #include <sys/ioctl.h> /* for ioctl() */
@@ -10,8 +9,6 @@
 #endif
 
 #include "common.h"
-#include "common/logging.h"
-#include "common/username.h"
 #include "help.h"
 #include "input.h"
 #include "settings.h"

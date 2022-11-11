@@ -1,13 +1,11 @@
-#include "postgres_fe.h"
+#include "psqlf.h"
 
 #include <unistd.h>
 
 #include "command.h"
 #include "common.h"
-#include "common/logging.h"
-#include "common/string.h"
+
 #include "describe.h"
-#include "fe_utils/print.h"
 #include "getopt_long.h"
 #include "help.h"
 #include "input.h"
@@ -104,7 +102,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  pset.progname = get_progname(argv[0]);
+  pset.progname = const_cast<char *>(get_progname(argv[0]));
 
   pset.db = NULL;
   pset.dead_conn = NULL;
@@ -770,13 +768,13 @@ static char *echo_substitute_hook(char *newval) {
 
 static bool echo_hook(const char *newval) {
   Assert(newval != NULL); /* else substitute hook messed up */
-  if (pg_strcasecmp(newval, "queries") == 0)
+  if (strcasecmp(newval, "queries") == 0)
     pset.echo = PSQL_ECHO_QUERIES;
-  else if (pg_strcasecmp(newval, "errors") == 0)
+  else if (strcasecmp(newval, "errors") == 0)
     pset.echo = PSQL_ECHO_ERRORS;
-  else if (pg_strcasecmp(newval, "all") == 0)
+  else if (strcasecmp(newval, "all") == 0)
     pset.echo = PSQL_ECHO_ALL;
-  else if (pg_strcasecmp(newval, "none") == 0)
+  else if (strcasecmp(newval, "none") == 0)
     pset.echo = PSQL_ECHO_NONE;
   else {
     PsqlVarEnumError("ECHO", newval, "none, errors, queries, all");
@@ -787,7 +785,7 @@ static bool echo_hook(const char *newval) {
 
 static bool echo_hidden_hook(const char *newval) {
   Assert(newval != NULL); /* else substitute hook messed up */
-  if (pg_strcasecmp(newval, "noexec") == 0)
+  if (strcasecmp(newval, "noexec") == 0)
     pset.echo_hidden = PSQL_ECHO_HIDDEN_NOEXEC;
   else {
     bool on_off;
@@ -804,7 +802,7 @@ static bool echo_hidden_hook(const char *newval) {
 
 static bool on_error_rollback_hook(const char *newval) {
   Assert(newval != NULL); /* else substitute hook messed up */
-  if (pg_strcasecmp(newval, "interactive") == 0)
+  if (strcasecmp(newval, "interactive") == 0)
     pset.on_error_rollback = PSQL_ERROR_ROLLBACK_INTERACTIVE;
   else {
     bool on_off;
@@ -826,13 +824,13 @@ static char *comp_keyword_case_substitute_hook(char *newval) {
 
 static bool comp_keyword_case_hook(const char *newval) {
   Assert(newval != NULL); /* else substitute hook messed up */
-  if (pg_strcasecmp(newval, "preserve-upper") == 0)
+  if (strcasecmp(newval, "preserve-upper") == 0)
     pset.comp_case = PSQL_COMP_CASE_PRESERVE_UPPER;
-  else if (pg_strcasecmp(newval, "preserve-lower") == 0)
+  else if (strcasecmp(newval, "preserve-lower") == 0)
     pset.comp_case = PSQL_COMP_CASE_PRESERVE_LOWER;
-  else if (pg_strcasecmp(newval, "upper") == 0)
+  else if (strcasecmp(newval, "upper") == 0)
     pset.comp_case = PSQL_COMP_CASE_UPPER;
-  else if (pg_strcasecmp(newval, "lower") == 0)
+  else if (strcasecmp(newval, "lower") == 0)
     pset.comp_case = PSQL_COMP_CASE_LOWER;
   else {
     PsqlVarEnumError("COMP_KEYWORD_CASE", newval, "lower, upper, preserve-lower, preserve-upper");
@@ -848,13 +846,13 @@ static char *histcontrol_substitute_hook(char *newval) {
 
 static bool histcontrol_hook(const char *newval) {
   Assert(newval != NULL); /* else substitute hook messed up */
-  if (pg_strcasecmp(newval, "ignorespace") == 0)
+  if (strcasecmp(newval, "ignorespace") == 0)
     pset.histcontrol = hctl_ignorespace;
-  else if (pg_strcasecmp(newval, "ignoredups") == 0)
+  else if (strcasecmp(newval, "ignoredups") == 0)
     pset.histcontrol = hctl_ignoredups;
-  else if (pg_strcasecmp(newval, "ignoreboth") == 0)
+  else if (strcasecmp(newval, "ignoreboth") == 0)
     pset.histcontrol = hctl_ignoreboth;
-  else if (pg_strcasecmp(newval, "none") == 0)
+  else if (strcasecmp(newval, "none") == 0)
     pset.histcontrol = hctl_none;
   else {
     PsqlVarEnumError("HISTCONTROL", newval, "none, ignorespace, ignoredups, ignoreboth");
@@ -885,13 +883,13 @@ static char *verbosity_substitute_hook(char *newval) {
 
 static bool verbosity_hook(const char *newval) {
   Assert(newval != NULL); /* else substitute hook messed up */
-  if (pg_strcasecmp(newval, "default") == 0)
+  if (strcasecmp(newval, "default") == 0)
     pset.verbosity = PQERRORS_DEFAULT;
-  else if (pg_strcasecmp(newval, "verbose") == 0)
+  else if (strcasecmp(newval, "verbose") == 0)
     pset.verbosity = PQERRORS_VERBOSE;
-  else if (pg_strcasecmp(newval, "terse") == 0)
+  else if (strcasecmp(newval, "terse") == 0)
     pset.verbosity = PQERRORS_TERSE;
-  else if (pg_strcasecmp(newval, "sqlstate") == 0)
+  else if (strcasecmp(newval, "sqlstate") == 0)
     pset.verbosity = PQERRORS_SQLSTATE;
   else {
     PsqlVarEnumError("VERBOSITY", newval, "default, verbose, terse, sqlstate");
@@ -913,11 +911,11 @@ static char *show_context_substitute_hook(char *newval) {
 
 static bool show_context_hook(const char *newval) {
   Assert(newval != NULL); /* else substitute hook messed up */
-  if (pg_strcasecmp(newval, "never") == 0)
+  if (strcasecmp(newval, "never") == 0)
     pset.show_context = PQSHOW_CONTEXT_NEVER;
-  else if (pg_strcasecmp(newval, "errors") == 0)
+  else if (strcasecmp(newval, "errors") == 0)
     pset.show_context = PQSHOW_CONTEXT_ERRORS;
-  else if (pg_strcasecmp(newval, "always") == 0)
+  else if (strcasecmp(newval, "always") == 0)
     pset.show_context = PQSHOW_CONTEXT_ALWAYS;
   else {
     PsqlVarEnumError("SHOW_CONTEXT", newval, "never, errors, always");

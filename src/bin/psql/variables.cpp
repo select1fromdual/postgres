@@ -5,11 +5,10 @@
  *
  * src/bin/psql/variables.c
  */
-#include "postgres_fe.h"
 
-#include "common.h"
-#include "common/logging.h"
 #include "variables.h"
+
+#include "psqlf.h"
 
 /*
  * Check whether a variable's name is allowed.
@@ -47,7 +46,7 @@ static bool valid_variable_name(const char *name) {
 VariableSpace CreateVariableSpace(void) {
   struct _variable *ptr;
 
-  ptr = pg_malloc(sizeof *ptr);
+  ptr = (_variable *)malloc(sizeof(_variable));
   ptr->name = NULL;
   ptr->value = NULL;
   ptr->substitute_hook = NULL;
@@ -101,22 +100,22 @@ bool ParseVariableBool(const char *value, const char *name, bool *result) {
 
   len = strlen(value);
 
-  if (len > 0 && pg_strncasecmp(value, "true", len) == 0)
+  if (len > 0 && strncasecmp(value, "true", len) == 0)
     *result = true;
-  else if (len > 0 && pg_strncasecmp(value, "false", len) == 0)
+  else if (len > 0 && strncasecmp(value, "false", len) == 0)
     *result = false;
-  else if (len > 0 && pg_strncasecmp(value, "yes", len) == 0)
+  else if (len > 0 && strncasecmp(value, "yes", len) == 0)
     *result = true;
-  else if (len > 0 && pg_strncasecmp(value, "no", len) == 0)
+  else if (len > 0 && strncasecmp(value, "no", len) == 0)
     *result = false;
   /* 'o' is not unique enough */
-  else if (pg_strncasecmp(value, "on", (len > 2 ? len : 2)) == 0)
+  else if (strncasecmp(value, "on", (len > 2 ? len : 2)) == 0)
     *result = true;
-  else if (pg_strncasecmp(value, "off", (len > 2 ? len : 2)) == 0)
+  else if (strncasecmp(value, "off", (len > 2 ? len : 2)) == 0)
     *result = false;
-  else if (pg_strcasecmp(value, "1") == 0)
+  else if (strcasecmp(value, "1") == 0)
     *result = true;
-  else if (pg_strcasecmp(value, "0") == 0)
+  else if (strcasecmp(value, "0") == 0)
     *result = false;
   else {
     /* string is not recognized; don't clobber *result */
@@ -201,7 +200,7 @@ bool SetVariable(VariableSpace space, const char *name, const char *value) {
        * variable.  Having to free the string again on failure is a
        * small price to pay for keeping these APIs simple.
        */
-      char *new_value = value ? pg_strdup(value) : NULL;
+      char *new_value = value ? strdup(value) : NULL;
       bool confirmed;
 
       if (current->substitute_hook) new_value = current->substitute_hook(new_value);
@@ -212,7 +211,7 @@ bool SetVariable(VariableSpace space, const char *name, const char *value) {
         confirmed = true;
 
       if (confirmed) {
-        pg_free(current->value);
+        free(current->value);
         current->value = new_value;
 
         /*
@@ -225,7 +224,7 @@ bool SetVariable(VariableSpace space, const char *name, const char *value) {
           free(current);
         }
       } else
-        pg_free(new_value); /* current->value is left unchanged */
+        free(new_value); /* current->value is left unchanged */
 
       return confirmed;
     }
@@ -234,9 +233,9 @@ bool SetVariable(VariableSpace space, const char *name, const char *value) {
 
   /* not present, make new entry ... unless we were asked to delete */
   if (value) {
-    current = pg_malloc(sizeof *current);
-    current->name = pg_strdup(name);
-    current->value = pg_strdup(value);
+    current = (_variable *)malloc(sizeof(_variable));
+    current->name = strdup(name);
+    current->value = strdup(value);
     current->substitute_hook = NULL;
     current->assign_hook = NULL;
     current->next = previous->next;
@@ -283,8 +282,8 @@ void SetVariableHooks(VariableSpace space, const char *name, VariableSubstituteH
   }
 
   /* not present, make new entry */
-  current = pg_malloc(sizeof *current);
-  current->name = pg_strdup(name);
+  current = (_variable *)malloc(sizeof(_variable));
+  current->name = strdup(name);
   current->value = NULL;
   current->substitute_hook = shook;
   current->assign_hook = ahook;

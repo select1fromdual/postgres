@@ -8,8 +8,7 @@
 #ifndef PSQLSCANSLASH_H
 #define PSQLSCANSLASH_H
 
-#include "fe_utils/psqlscan.h"
-
+#include "psqlf.h"
 
 /* Different ways for scan_slash_option to handle parameter words */
 enum slash_option_type

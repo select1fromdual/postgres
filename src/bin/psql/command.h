@@ -1,9 +1,7 @@
 #ifndef COMMAND_H
 #define COMMAND_H
 
-#include "fe_utils/conditional.h"
-#include "fe_utils/print.h"
-#include "fe_utils/psqlscan.h"
+#include "psqlf.h"
 
 typedef enum _backslashResult {
   PSQL_CMD_UNKNOWN = 0, /* not done parsing yet (internal only) */

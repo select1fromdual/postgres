@@ -1,19 +1,10 @@
-
-#include "postgres_fe.h"
+#include "psqlf.h"
 
 #include <ctype.h>
 
-#include "catalog/pg_am.h"
-#include "catalog/pg_attribute_d.h"
-#include "catalog/pg_cast_d.h"
-#include "catalog/pg_class_d.h"
-#include "catalog/pg_default_acl_d.h"
 #include "common.h"
-#include "common/logging.h"
 #include "describe.h"
-#include "fe_utils/mbprint.h"
-#include "fe_utils/print.h"
-#include "fe_utils/string_utils.h"
+
 #include "settings.h"
 #include "variables.h"
 
@@ -1721,7 +1712,8 @@ static bool describeOneTableDetails(const char *schemaname, const char *relation
 
       printTableAddCell(&cont, PQgetvalue(res, i, attcoll_col), false, false);
 
-      printTableAddCell(&cont, strcmp(PQgetvalue(res, i, attnotnull_col), "t") == 0 ? "not null" : "", false, false);
+      const char *cc = strcmp(PQgetvalue(res, i, attnotnull_col), "t") == 0 ? "not null" : "";
+      printTableAddCell(&cont, const_cast<char *>(cc), false, false);
 
       identity = PQgetvalue(res, i, attidentity_col);
       generated = PQgetvalue(res, i, attgenerated_col);
@@ -1749,26 +1741,24 @@ static bool describeOneTableDetails(const char *schemaname, const char *relation
     /* Storage mode, if relevant */
     if (attstorage_col >= 0) {
       char *storage = PQgetvalue(res, i, attstorage_col);
-
-      /* these strings are literal in our syntax, so not translated. */
-      printTableAddCell(
-          &cont,
+      const char *cc =
           (storage[0] == 'p'
                ? "plain"
                : (storage[0] == 'm' ? "main"
-                                    : (storage[0] == 'x' ? "extended" : (storage[0] == 'e' ? "external" : "???")))),
-          false, false);
+                                    : (storage[0] == 'x' ? "extended" : (storage[0] == 'e' ? "external" : "???"))));
+
+      /* these strings are literal in our syntax, so not translated. */
+      printTableAddCell(&cont, const_cast<char *>(cc), false, false);
     }
 
     /* Column compression, if relevant */
     if (attcompression_col >= 0) {
       char *compression = PQgetvalue(res, i, attcompression_col);
+      const char *cc =
+          (compression[0] == 'p' ? "pglz" : (compression[0] == 'l' ? "lz4" : (compression[0] == '\0' ? "" : "???")));
 
       /* these strings are literal in our syntax, so not translated. */
-      printTableAddCell(
-          &cont,
-          (compression[0] == 'p' ? "pglz" : (compression[0] == 'l' ? "lz4" : (compression[0] == '\0' ? "" : "???"))),
-          false, false);
+      printTableAddCell(&cont, const_cast<char *>(cc), false, false);
     }
 
     /* Statistics target, if the relkind supports this feature */
@@ -3068,7 +3058,7 @@ bool describeRoles(const char *pattern, bool verbose, bool showSystem) {
   if (!res) return false;
 
   nrows = PQntuples(res);
-  attr = pg_malloc0((nrows + 1) * sizeof(*attr));
+  attr = (char**) malloc((nrows + 1) * sizeof(*attr));
 
   printTableInit(&cont, &myopt, _("List of roles"), ncols, nrows);
 

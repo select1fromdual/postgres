@@ -8,8 +8,7 @@
 #ifndef COPY_H
 #define COPY_H
 
-#include "libpq-fe.h"
-
+#include "psqlf.h"
 
 /* handler for \copy */
 extern bool do_copy(const char *args);

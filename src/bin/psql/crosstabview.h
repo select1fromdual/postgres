@@ -9,7 +9,7 @@
 #ifndef CROSSTABVIEW_H
 #define CROSSTABVIEW_H
 
-#include "libpq-fe.h"
+#include "psqlf.h"
 
 /*
  * Limit the number of output columns generated in memory by the crosstabview

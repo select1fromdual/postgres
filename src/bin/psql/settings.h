@@ -2,7 +2,8 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
-#include "fe_utils/print.h"
+#include "psqlf.h"
+
 #include "variables.h"
 
 #define DEFAULT_CSV_FIELD_SEP ','
@@ -71,7 +72,7 @@ typedef struct _psqlSettings {
                               * loop */
   bool cur_cmd_interactive;
   int sversion;         /* backend server version */
-  const char *progname; /* in case you renamed psql */
+  char *progname; /* in case you renamed psql */
   char *inputfile;      /* file being currently processed, if any */
   uint64 lineno;        /* also for error reporting */
   uint64 stmt_lineno;   /* line number inside the current statement */

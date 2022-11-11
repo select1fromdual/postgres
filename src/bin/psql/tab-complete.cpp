@@ -32,8 +32,7 @@
  *----------------------------------------------------------------------
  */
 
-#include "postgres_fe.h"
-
+#include "psqlf.h"
 #include "input.h"
 #include "tab-complete.h"
 
@@ -43,13 +42,8 @@
 #include <ctype.h>
 #include <sys/stat.h>
 
-#include "catalog/pg_am_d.h"
-#include "catalog/pg_class_d.h"
 #include "common.h"
-#include "common/keywords.h"
-#include "libpq-fe.h"
-#include "mb/pg_wchar.h"
-#include "pqexpbuffer.h"
+
 #include "settings.h"
 #include "stringutils.h"
 
@@ -155,7 +149,7 @@ typedef struct SchemaQuery {
    * want to join to pg_namespace (then any schema part in the input word
    * will be ignored).
    */
-  const char *namespace;
+  const char *namespaces;
 
   /*
    * Result --- the base object name to return.  For example, "c.relname".
@@ -484,14 +478,14 @@ static const SchemaQuery Query_for_list_of_aggregates[] = {
         .catname = "pg_catalog.pg_proc p",
         .selcondition = "p.prokind = 'a'",
         .viscondition = "pg_catalog.pg_function_is_visible(p.oid)",
-        .namespace = "p.pronamespace",
+        .namespaces = "p.pronamespace",
         .result = "p.proname",
     },
     {
         .catname = "pg_catalog.pg_proc p",
         .selcondition = "p.proisagg",
         .viscondition = "pg_catalog.pg_function_is_visible(p.oid)",
-        .namespace = "p.pronamespace",
+        .namespaces = "p.pronamespace",
         .result = "p.proname",
     }};
 
@@ -555,7 +549,7 @@ static const SchemaQuery Query_for_list_of_datatypes = {
 	"     FROM pg_catalog.pg_class c WHERE c.oid = t.typrelid)) "
 	"AND t.typname !~ '^_'",
 	.viscondition = "pg_catalog.pg_type_is_visible(t.oid)",
-	.namespace = "t.typnamespace",
+	.namespaces = "t.typnamespace",
 	.result = "t.typname",
 	.keywords = Keywords_for_list_of_datatypes,
 };
@@ -567,7 +561,7 @@ static const SchemaQuery Query_for_list_of_composite_datatypes = {
 	" FROM pg_catalog.pg_class c WHERE c.oid = t.typrelid) "
 	"AND t.typname !~ '^_'",
 	.viscondition = "pg_catalog.pg_type_is_visible(t.oid)",
-	.namespace = "t.typnamespace",
+	.namespaces = "t.typnamespace",
 	.result = "t.typname",
 };
 
@@ -575,7 +569,7 @@ static const SchemaQuery Query_for_list_of_domains = {
     .catname = "pg_catalog.pg_type t",
     .selcondition = "t.typtype = 'd'",
     .viscondition = "pg_catalog.pg_type_is_visible(t.oid)",
-    .namespace = "t.typnamespace",
+    .namespaces = "t.typnamespace",
     .result = "t.typname",
 };
 
@@ -604,13 +598,13 @@ static const SchemaQuery Query_for_list_of_functions[] = {
         .catname = "pg_catalog.pg_proc p",
         .selcondition = "p.prokind != 'p'",
         .viscondition = "pg_catalog.pg_function_is_visible(p.oid)",
-        .namespace = "p.pronamespace",
+        .namespaces = "p.pronamespace",
         .result = "p.proname",
     },
     {
         .catname = "pg_catalog.pg_proc p",
         .viscondition = "pg_catalog.pg_function_is_visible(p.oid)",
-        .namespace = "p.pronamespace",
+        .namespaces = "p.pronamespace",
         .result = "p.proname",
     }};
 
@@ -620,7 +614,7 @@ static const SchemaQuery Query_for_list_of_procedures[] = {
         .catname = "pg_catalog.pg_proc p",
         .selcondition = "p.prokind = 'p'",
         .viscondition = "pg_catalog.pg_function_is_visible(p.oid)",
-        .namespace = "p.pronamespace",
+        .namespaces = "p.pronamespace",
         .result = "p.proname",
     },
     {
@@ -631,7 +625,7 @@ static const SchemaQuery Query_for_list_of_procedures[] = {
 static const SchemaQuery Query_for_list_of_routines = {
     .catname = "pg_catalog.pg_proc p",
     .viscondition = "pg_catalog.pg_function_is_visible(p.oid)",
-    .namespace = "p.pronamespace",
+    .namespaces = "p.pronamespace",
     .result = "p.proname",
 };
 
@@ -639,7 +633,7 @@ static const SchemaQuery Query_for_list_of_sequences = {
     .catname = "pg_catalog.pg_class c",
     .selcondition = "c.relkind IN (" CppAsString2(RELKIND_SEQUENCE) ")",
     .viscondition = "pg_catalog.pg_table_is_visible(c.oid)",
-    .namespace = "c.relnamespace",
+    .namespaces = "c.relnamespace",
     .result = "c.relname",
 };
 
@@ -647,7 +641,7 @@ static const SchemaQuery Query_for_list_of_foreign_tables = {
     .catname = "pg_catalog.pg_class c",
     .selcondition = "c.relkind IN (" CppAsString2(RELKIND_FOREIGN_TABLE) ")",
     .viscondition = "pg_catalog.pg_table_is_visible(c.oid)",
-    .namespace = "c.relnamespace",
+    .namespaces = "c.relnamespace",
     .result = "c.relname",
 };
 
@@ -655,7 +649,7 @@ static const SchemaQuery Query_for_list_of_tables = {
     .catname = "pg_catalog.pg_class c",
     .selcondition = "c.relkind IN (" CppAsString2(RELKIND_RELATION) ", " CppAsString2(RELKIND_PARTITIONED_TABLE) ")",
     .viscondition = "pg_catalog.pg_table_is_visible(c.oid)",
-    .namespace = "c.relnamespace",
+    .namespaces = "c.relnamespace",
     .result = "c.relname",
 };
 
@@ -663,7 +657,7 @@ static const SchemaQuery Query_for_list_of_partitioned_tables = {
     .catname = "pg_catalog.pg_class c",
     .selcondition = "c.relkind IN (" CppAsString2(RELKIND_PARTITIONED_TABLE) ")",
     .viscondition = "pg_catalog.pg_table_is_visible(c.oid)",
-    .namespace = "c.relnamespace",
+    .namespaces = "c.relnamespace",
     .result = "c.relname",
 };
 
@@ -672,7 +666,7 @@ static const SchemaQuery Query_for_list_of_tables_for_constraint = {
     .selcondition = "c.oid=con.conrelid and c.relkind IN (" CppAsString2(RELKIND_RELATION) ", " CppAsString2(
         RELKIND_PARTITIONED_TABLE) ")",
     .viscondition = "pg_catalog.pg_table_is_visible(c.oid)",
-    .namespace = "c.relnamespace",
+    .namespaces = "c.relnamespace",
     .result = "c.relname",
     .use_distinct = true,
     .refname = "con.conname",
@@ -682,7 +676,7 @@ static const SchemaQuery Query_for_list_of_tables_for_policy = {
     .catname = "pg_catalog.pg_class c, pg_catalog.pg_policy p",
     .selcondition = "c.oid=p.polrelid",
     .viscondition = "pg_catalog.pg_table_is_visible(c.oid)",
-    .namespace = "c.relnamespace",
+    .namespaces = "c.relnamespace",
     .result = "c.relname",
     .use_distinct = true,
     .refname = "p.polname",
@@ -692,7 +686,7 @@ static const SchemaQuery Query_for_list_of_tables_for_rule = {
     .catname = "pg_catalog.pg_class c, pg_catalog.pg_rewrite r",
     .selcondition = "c.oid=r.ev_class",
     .viscondition = "pg_catalog.pg_table_is_visible(c.oid)",
-    .namespace = "c.relnamespace",
+    .namespaces = "c.relnamespace",
     .result = "c.relname",
     .use_distinct = true,
     .refname = "r.rulename",
@@ -702,7 +696,7 @@ static const SchemaQuery Query_for_list_of_tables_for_trigger = {
     .catname = "pg_catalog.pg_class c, pg_catalog.pg_trigger t",
     .selcondition = "c.oid=t.tgrelid",
     .viscondition = "pg_catalog.pg_table_is_visible(c.oid)",
-    .namespace = "c.relnamespace",
+    .namespaces = "c.relnamespace",
     .result = "c.relname",
     .use_distinct = true,
     .refname = "t.tgname",
@@ -711,28 +705,28 @@ static const SchemaQuery Query_for_list_of_tables_for_trigger = {
 static const SchemaQuery Query_for_list_of_ts_configurations = {
     .catname = "pg_catalog.pg_ts_config c",
     .viscondition = "pg_catalog.pg_ts_config_is_visible(c.oid)",
-    .namespace = "c.cfgnamespace",
+    .namespaces = "c.cfgnamespace",
     .result = "c.cfgname",
 };
 
 static const SchemaQuery Query_for_list_of_ts_dictionaries = {
     .catname = "pg_catalog.pg_ts_dict d",
     .viscondition = "pg_catalog.pg_ts_dict_is_visible(d.oid)",
-    .namespace = "d.dictnamespace",
+    .namespaces = "d.dictnamespace",
     .result = "d.dictname",
 };
 
 static const SchemaQuery Query_for_list_of_ts_parsers = {
     .catname = "pg_catalog.pg_ts_parser p",
     .viscondition = "pg_catalog.pg_ts_parser_is_visible(p.oid)",
-    .namespace = "p.prsnamespace",
+    .namespaces = "p.prsnamespace",
     .result = "p.prsname",
 };
 
 static const SchemaQuery Query_for_list_of_ts_templates = {
     .catname = "pg_catalog.pg_ts_template t",
     .viscondition = "pg_catalog.pg_ts_template_is_visible(t.oid)",
-    .namespace = "t.tmplnamespace",
+    .namespaces = "t.tmplnamespace",
     .result = "t.tmplname",
 };
 
@@ -740,7 +734,7 @@ static const SchemaQuery Query_for_list_of_views = {
     .catname = "pg_catalog.pg_class c",
     .selcondition = "c.relkind IN (" CppAsString2(RELKIND_VIEW) ")",
     .viscondition = "pg_catalog.pg_table_is_visible(c.oid)",
-    .namespace = "c.relnamespace",
+    .namespaces = "c.relnamespace",
     .result = "c.relname",
 };
 
@@ -748,7 +742,7 @@ static const SchemaQuery Query_for_list_of_matviews = {
     .catname = "pg_catalog.pg_class c",
     .selcondition = "c.relkind IN (" CppAsString2(RELKIND_MATVIEW) ")",
     .viscondition = "pg_catalog.pg_table_is_visible(c.oid)",
-    .namespace = "c.relnamespace",
+    .namespaces = "c.relnamespace",
     .result = "c.relname",
 };
 
@@ -756,7 +750,7 @@ static const SchemaQuery Query_for_list_of_indexes = {
     .catname = "pg_catalog.pg_class c",
     .selcondition = "c.relkind IN (" CppAsString2(RELKIND_INDEX) ", " CppAsString2(RELKIND_PARTITIONED_INDEX) ")",
     .viscondition = "pg_catalog.pg_table_is_visible(c.oid)",
-    .namespace = "c.relnamespace",
+    .namespaces = "c.relnamespace",
     .result = "c.relname",
 };
 
@@ -764,7 +758,7 @@ static const SchemaQuery Query_for_list_of_partitioned_indexes = {
     .catname = "pg_catalog.pg_class c",
     .selcondition = "c.relkind = " CppAsString2(RELKIND_PARTITIONED_INDEX),
     .viscondition = "pg_catalog.pg_table_is_visible(c.oid)",
-    .namespace = "c.relnamespace",
+    .namespaces = "c.relnamespace",
     .result = "c.relname",
 };
 
@@ -772,7 +766,7 @@ static const SchemaQuery Query_for_list_of_partitioned_indexes = {
 static const SchemaQuery Query_for_list_of_relations = {
     .catname = "pg_catalog.pg_class c",
     .viscondition = "pg_catalog.pg_table_is_visible(c.oid)",
-    .namespace = "c.relnamespace",
+    .namespaces = "c.relnamespace",
     .result = "c.relname",
 };
 
@@ -782,14 +776,14 @@ static const SchemaQuery Query_for_list_of_partitioned_relations = {
     .selcondition =
         "c.relkind IN (" CppAsString2(RELKIND_PARTITIONED_TABLE) ", " CppAsString2(RELKIND_PARTITIONED_INDEX) ")",
     .viscondition = "pg_catalog.pg_table_is_visible(c.oid)",
-    .namespace = "c.relnamespace",
+    .namespaces = "c.relnamespace",
     .result = "c.relname",
 };
 
 static const SchemaQuery Query_for_list_of_operator_families = {
     .catname = "pg_catalog.pg_opfamily c",
     .viscondition = "pg_catalog.pg_opfamily_is_visible(c.oid)",
-    .namespace = "c.opfnamespace",
+    .namespaces = "c.opfnamespace",
     .result = "c.opfname",
 };
 
@@ -799,7 +793,7 @@ static const SchemaQuery Query_for_list_of_updatables = {
     .selcondition = "c.relkind IN (" CppAsString2(RELKIND_RELATION) ", " CppAsString2(
         RELKIND_FOREIGN_TABLE) ", " CppAsString2(RELKIND_VIEW) ", " CppAsString2(RELKIND_PARTITIONED_TABLE) ")",
     .viscondition = "pg_catalog.pg_table_is_visible(c.oid)",
-    .namespace = "c.relnamespace",
+    .namespaces = "c.relnamespace",
     .result = "c.relname",
 };
 
@@ -808,7 +802,7 @@ static const SchemaQuery Query_for_list_of_mergetargets = {
     .catname = "pg_catalog.pg_class c",
     .selcondition = "c.relkind IN (" CppAsString2(RELKIND_RELATION) ", " CppAsString2(RELKIND_PARTITIONED_TABLE) ") ",
     .viscondition = "pg_catalog.pg_table_is_visible(c.oid)",
-    .namespace = "c.relnamespace",
+    .namespaces = "c.relnamespace",
     .result = "c.relname",
 };
 
@@ -823,7 +817,7 @@ static const SchemaQuery Query_for_list_of_selectables = {
 	CppAsString2(RELKIND_FOREIGN_TABLE) ", "
 	CppAsString2(RELKIND_PARTITIONED_TABLE) ")",
 	.viscondition = "pg_catalog.pg_table_is_visible(c.oid)",
-	.namespace = "c.relnamespace",
+	.namespaces = "c.relnamespace",
 	.result = "c.relname",
 };
 
@@ -833,7 +827,7 @@ static const SchemaQuery Query_for_list_of_truncatables = {
     .selcondition = "c.relkind IN (" CppAsString2(RELKIND_RELATION) ", " CppAsString2(
         RELKIND_FOREIGN_TABLE) ", " CppAsString2(RELKIND_PARTITIONED_TABLE) ")",
     .viscondition = "pg_catalog.pg_table_is_visible(c.oid)",
-    .namespace = "c.relnamespace",
+    .namespaces = "c.relnamespace",
     .result = "c.relname",
 };
 
@@ -846,7 +840,7 @@ static const SchemaQuery Query_for_list_of_analyzables = {
     .selcondition = "c.relkind IN (" CppAsString2(RELKIND_RELATION) ", " CppAsString2(
         RELKIND_PARTITIONED_TABLE) ", " CppAsString2(RELKIND_MATVIEW) ", " CppAsString2(RELKIND_FOREIGN_TABLE) ")",
     .viscondition = "pg_catalog.pg_table_is_visible(c.oid)",
-    .namespace = "c.relnamespace",
+    .namespaces = "c.relnamespace",
     .result = "c.relname",
 };
 
@@ -856,7 +850,7 @@ static const SchemaQuery Query_for_list_of_indexables = {
     .selcondition = "c.relkind IN (" CppAsString2(RELKIND_RELATION) ", " CppAsString2(
         RELKIND_PARTITIONED_TABLE) ", " CppAsString2(RELKIND_MATVIEW) ")",
     .viscondition = "pg_catalog.pg_table_is_visible(c.oid)",
-    .namespace = "c.relnamespace",
+    .namespaces = "c.relnamespace",
     .result = "c.relname",
 };
 
@@ -872,21 +866,21 @@ static const SchemaQuery Query_for_list_of_clusterables = {
     .selcondition = "c.relkind IN (" CppAsString2(RELKIND_RELATION) ", " CppAsString2(
         RELKIND_PARTITIONED_TABLE) ", " CppAsString2(RELKIND_MATVIEW) ")",
     .viscondition = "pg_catalog.pg_table_is_visible(c.oid)",
-    .namespace = "c.relnamespace",
+    .namespaces = "c.relnamespace",
     .result = "c.relname",
 };
 
 static const SchemaQuery Query_for_list_of_constraints_with_schema = {
     .catname = "pg_catalog.pg_constraint c",
     .selcondition = "c.conrelid <> 0",
-    .namespace = "c.connamespace",
+    .namespaces = "c.connamespace",
     .result = "c.conname",
 };
 
 static const SchemaQuery Query_for_list_of_statistics = {
     .catname = "pg_catalog.pg_statistic_ext s",
     .viscondition = "pg_catalog.pg_statistics_obj_is_visible(s.oid)",
-    .namespace = "s.stxnamespace",
+    .namespaces = "s.stxnamespace",
     .result = "s.stxname",
 };
 
@@ -894,7 +888,7 @@ static const SchemaQuery Query_for_list_of_collations = {
     .catname = "pg_catalog.pg_collation c",
     .selcondition = "c.collencoding IN (-1, pg_catalog.pg_char_to_encoding(pg_catalog.getdatabaseencoding()))",
     .viscondition = "pg_catalog.pg_collation_is_visible(c.oid)",
-    .namespace = "c.collnamespace",
+    .namespaces = "c.collnamespace",
     .result = "c.collname",
 };
 
@@ -902,7 +896,7 @@ static const SchemaQuery Query_for_partition_of_table = {
     .catname = "pg_catalog.pg_class c1, pg_catalog.pg_class c2, pg_catalog.pg_inherits i",
     .selcondition = "c1.oid=i.inhparent and i.inhrelid=c2.oid and c2.relispartition",
     .viscondition = "pg_catalog.pg_table_is_visible(c2.oid)",
-    .namespace = "c2.relnamespace",
+    .namespaces = "c2.relnamespace",
     .result = "c2.relname",
     .refname = "c1.relname",
     .refviscondition = "pg_catalog.pg_table_is_visible(c1.oid)",
@@ -4578,7 +4572,7 @@ static char *_complete_from_query(const char *simple_query, const SchemaQuery *s
        * already qualified or not.  schema_query gives us the pieces to
        * assemble.
        */
-      if (schemaname == NULL || schema_query->namespace == NULL) {
+      if (schemaname == NULL || schema_query->namespaces == NULL) {
         /* Get unqualified names matching the input-so-far */
         appendPQExpBufferStr(&query_buffer, "SELECT ");
         if (schema_query->use_distinct) appendPQExpBufferStr(&query_buffer, "DISTINCT ");
@@ -4617,7 +4611,7 @@ static char *_complete_from_query(const char *simple_query, const SchemaQuery *s
          * If the target object type can be schema-qualified, add in
          * schema names matching the input-so-far.
          */
-        if (schema_query->namespace) {
+        if (schema_query->namespaces) {
           appendPQExpBuffer(&query_buffer,
                             "\nUNION ALL\n"
                             "SELECT NULL::pg_catalog.text, n.nspname "
@@ -4649,7 +4643,7 @@ static char *_complete_from_query(const char *simple_query, const SchemaQuery *s
                           schema_query->result, schema_query->catname);
         if (schema_query->refnamespace && completion_ref_schema)
           appendPQExpBufferStr(&query_buffer, ", pg_catalog.pg_namespace nr");
-        appendPQExpBuffer(&query_buffer, " WHERE %s = n.oid AND ", schema_query->namespace);
+        appendPQExpBuffer(&query_buffer, " WHERE %s = n.oid AND ", schema_query->namespaces);
         if (schema_query->selcondition) appendPQExpBuffer(&query_buffer, "%s AND ", schema_query->selcondition);
         appendPQExpBuffer(&query_buffer, "(%s) LIKE '%s' AND ", schema_query->result, e_object_like);
         appendPQExpBuffer(&query_buffer, "n.nspname = '%s'", e_schemaname);
@@ -5056,7 +5050,7 @@ static char *escape_string(const char *text) {
 
   text_length = strlen(text);
 
-  result = pg_malloc(text_length * 2 + 1);
+  result = (char *)malloc(text_length * 2 + 1);
   PQescapeStringConn(pset.db, result, text, text_length, NULL);
 
   return result;
@@ -5072,7 +5066,7 @@ static char *escape_string(const char *text) {
  */
 static char *make_like_pattern(const char *word) {
   char *result;
-  char *buffer = pg_malloc(strlen(word) * 2 + 2);
+  char *buffer = (char *)malloc(strlen(word) * 2 + 2);
   char *bptr = buffer;
 
   while (*word) {
@@ -5119,7 +5113,7 @@ static void parse_identifier(const char *ident, char **schemaname, char **object
 
   /* Initialize, making a certainly-large-enough output buffer */
   sname = NULL;
-  oname = pg_malloc(buflen);
+  oname = (char *)malloc(buflen);
   *schemaquoted = *objectquoted = false;
   /* Scan */
   optr = oname;
@@ -5141,7 +5135,7 @@ static void parse_identifier(const char *ident, char **schemaname, char **object
       *optr = '\0';
       free(sname); /* drop any catalog name */
       sname = oname;
-      oname = pg_malloc(buflen);
+      oname = (char *)malloc(buflen);
       optr = oname;
       *schemaquoted = *objectquoted;
       *objectquoted = false;
@@ -5219,7 +5213,7 @@ static char *requote_identifier(const char *schemaname, const char *objectname, 
       }
     }
   }
-  result = pg_malloc(buflen);
+  result = (char *)malloc(buflen);
   ptr = result;
   if (schemaname) {
     if (quote_schema) *ptr++ = '"';
@@ -5323,7 +5317,7 @@ static char **get_previous_words(int point, char **buffer, int *nwords) {
    */
   if (tab_completion_query_buf && tab_completion_query_buf->len > 0) {
     i = tab_completion_query_buf->len;
-    buf = pg_malloc(point + i + 2);
+    buf = (char *)malloc(point + i + 2);
     memcpy(buf, tab_completion_query_buf->data, i);
     buf[i++] = '\n';
     memcpy(buf + i, rl_line_buffer, point);

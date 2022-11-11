@@ -8,9 +8,8 @@
 #ifndef PROMPT_H
 #define PROMPT_H
 
-#include "fe_utils/conditional.h"
+#include "psqlf.h"
 /* enum promptStatus_t is now defined by psqlscan.h */
-#include "fe_utils/psqlscan.h"
 
 char	   *get_prompt(promptStatus_t status, ConditionalStack cstack);
 
