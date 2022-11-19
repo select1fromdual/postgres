@@ -3,7 +3,7 @@
 #include <unistd.h> /* for geteuid() */
 
 #include <sys/ioctl.h> /* for ioctl() */
-
+#include "logger.h"
 #ifdef HAVE_TERMIOS_H
 #include <termios.h>
 #endif
@@ -43,7 +43,7 @@ void usage(unsigned short int pager) {
   user = getenv("PGUSER");
   if (!user) {
     user = get_user_name(&errstr);
-    if (!user) pg_fatal("%s", errstr);
+    if (!user) PSQL_LOG_ERROR("%s", errstr);
   }
 
   /*

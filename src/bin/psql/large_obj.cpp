@@ -9,6 +9,7 @@
 #include "common.h"
 #include "large_obj.h"
 #include "settings.h"
+#include "logger.h"
 
 static void print_lo_result(const char *fmt, ...) pg_attribute_printf(1, 2);
 
@@ -50,7 +51,7 @@ static bool start_lo_xact(const char *operation, bool *own_transaction) {
   *own_transaction = false;
 
   if (!pset.db) {
-    pg_log_error("%s: not connected to a database", operation);
+    PSQL_LOG_ERROR("%s: not connected to a database", operation);
     return false;
   }
 
@@ -67,10 +68,10 @@ static bool start_lo_xact(const char *operation, bool *own_transaction) {
       /* use the existing xact */
       break;
     case PQTRANS_INERROR:
-      pg_log_error("%s: current transaction is aborted", operation);
+      PSQL_LOG_ERROR("%s: current transaction is aborted", operation);
       return false;
     default:
-      pg_log_error("%s: unknown transaction status", operation);
+      PSQL_LOG_ERROR("%s: unknown transaction status", operation);
       return false;
   }
 
@@ -128,7 +129,7 @@ bool do_lo_export(const char *loid_arg, const char *filename_arg) {
 
   /* of course this status is documented nowhere :( */
   if (status != 1) {
-    pg_log_info("%s", PQerrorMessage(pset.db));
+    PSQL_LOG_INFO("%s", PQerrorMessage(pset.db));
     return fail_lo_xact("\\lo_export", own_transaction);
   }
 
@@ -157,7 +158,7 @@ bool do_lo_import(const char *filename_arg, const char *comment_arg) {
   ResetCancelConn();
 
   if (loid == InvalidOid) {
-    pg_log_info("%s", PQerrorMessage(pset.db));
+    PSQL_LOG_INFO("%s", PQerrorMessage(pset.db));
     return fail_lo_xact("\\lo_import", own_transaction);
   }
 
@@ -210,7 +211,7 @@ bool do_lo_unlink(const char *loid_arg) {
   ResetCancelConn();
 
   if (status == -1) {
-    pg_log_info("%s", PQerrorMessage(pset.db));
+    PSQL_LOG_INFO("%s", PQerrorMessage(pset.db));
     return fail_lo_xact("\\lo_unlink", own_transaction);
   }
 

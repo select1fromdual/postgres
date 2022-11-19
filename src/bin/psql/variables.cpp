@@ -7,7 +7,7 @@
  */
 
 #include "variables.h"
-
+#include "logger.h"
 VariableSpace::~VariableSpace() {
   for (auto &[key, val] : variable_) {
     if (val->value) free(val->value);
@@ -82,7 +82,7 @@ bool ParseVariableBool(const char *value, const char *name, bool *result) {
     *result = false;
   else {
     /* string is not recognized; don't clobber *result */
-    if (name) pg_log_error("unrecognized value \"%s\" for \"%s\": Boolean expected", value, name);
+    if (name) PSQL_LOG_ERROR("unrecognized value \"%s\" for \"%s\": Boolean expected", value, name);
     valid = false;
   }
   return valid;
@@ -111,7 +111,7 @@ bool ParseVariableNum(const char *value, const char *name, int *result) {
     return true;
   } else {
     /* string is not recognized; don't clobber *result */
-    if (name) pg_log_error("invalid value \"%s\" for \"%s\": integer expected", value, name);
+    if (name) PSQL_LOG_ERROR("invalid value \"%s\" for \"%s\": integer expected", value, name);
     return false;
   }
 }
@@ -130,7 +130,7 @@ bool VariableSpace::SetVariable(const char *name, const char *value) {
   if (!valid_variable_name(name)) {
     /* Deletion of non-existent variable is not an error */
     if (!value) return true;
-    pg_log_error("invalid variable name: \"%s\"", name);
+    PSQL_LOG_ERROR("invalid variable name: \"%s\"", name);
     return false;
   }
 
@@ -250,7 +250,7 @@ bool VariableSpace::DeleteVariable(const char *name) { return SetVariable(name, 
  * suggestions should follow the format "fee, fi, fo, fum".
  */
 void PsqlVarEnumError(const char *name, const char *value, const char *suggestions) {
-  pg_log_error(
+  PSQL_LOG_ERROR(
       "unrecognized value \"%s\" for \"%s\"\n"
       "Available values are: %s.",
       value, name, suggestions);

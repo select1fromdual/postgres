@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(psql)
 
+add_subdirectory(_deps/spdlog)
+
 list(APPEND srcs
   startup.cpp
   command.cpp
@@ -18,6 +20,7 @@ list(APPEND srcs
   prompt.cpp
   tab-complete.cpp
   variables.cpp
+  logger.cpp
 )
 
 add_executable(psql ${srcs})
@@ -31,12 +34,12 @@ target_include_directories(psql PUBLIC
   /home/esoye/postgres/__build/making/src/include
   /home/esoye/postgres/__build/making/src/interfaces/libpq
 )
+target_include_directories(psql PUBLIC _deps/spdlog/include)
 
 target_link_libraries(psql readline)
 target_compile_definitions(psql PUBLIC HAVE_READLINE_READLINE_H)
 
 target_link_libraries(psql 
-/home/esoye/postgres/__build/making/src/common/logging.o
 /home/esoye/postgres/__build/making/src/common/exec.o
 /home/esoye/postgres/__build/making/src/common/string.o
 /home/esoye/postgres/__build/making/src/common/keywords.o
@@ -56,12 +59,11 @@ target_link_libraries(psql
 /home/esoye/postgres/__build/making/src/fe_utils/mbprint.o
 /home/esoye/postgres/__build/making/src/fe_utils/psqlscan.o
 /home/esoye/postgres/__build/making/src/fe_utils/string_utils.o
-# /home/esoye/postgres/__build/making/src/common/fe_memutils.o
 /home/esoye/postgres/__build/making/src/common/sprompt.o
 /home/esoye/postgres/__build/making/src/common/psprintf.o
 /home/esoye/postgres/__build/making/src/common/wait_error.o
 /home/esoye/postgres/__build/making/src/common/username.o
 /home/esoye/postgres/__build/making/src/fe_utils/psqlscan.o
 /home/esoye/postgres/__build/making/src/fe_utils/conditional.o
-
 )
+

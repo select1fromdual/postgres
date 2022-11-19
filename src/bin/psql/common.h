@@ -1,6 +1,4 @@
-
-#ifndef COMMON_H
-#define COMMON_H
+#pragma once
 
 #include <setjmp.h>
 
@@ -31,5 +29,3 @@ extern const char *session_username(void);
 extern void expand_tilde(char **filename);
 
 extern bool recognized_connection_string(const char *connstr);
-
-#endif /* COMMON_H */

@@ -1,6 +1,7 @@
 
 
 #include "psqlf.h"
+#include "logger.h"
 
 #include <ctype.h>
 #include <limits.h>
@@ -47,7 +48,7 @@ bool openQueryOutputFile(const char *fname, FILE **fout, bool *is_pipe) {
   }
 
   if (*fout == NULL) {
-    pg_log_error("%s: %m", fname);
+    PSQL_LOG_ERROR("%s: %m", fname);
     return false;
   }
 
@@ -123,7 +124,7 @@ char *psql_get_variable(const char *varname, PsqlScanQuoteType quote, void *pass
       char *escaped_value;
 
       if (!pset.db) {
-        pg_log_error("cannot escape without active connection");
+        PSQL_LOG_ERROR("cannot escape without active connection");
         return NULL;
       }
 
@@ -135,7 +136,7 @@ char *psql_get_variable(const char *varname, PsqlScanQuoteType quote, void *pass
       if (escaped_value == NULL) {
         const char *error = PQerrorMessage(pset.db);
 
-        pg_log_info("%s", error);
+        PSQL_LOG_INFO("%s", error);
         return NULL;
       }
 
@@ -159,7 +160,7 @@ char *psql_get_variable(const char *varname, PsqlScanQuoteType quote, void *pass
 
       initPQExpBuffer(&buf);
       if (!appendShellStringNoError(&buf, value)) {
-        pg_log_error("shell command argument contains a newline or carriage return: \"%s\"", value);
+        PSQL_LOG_ERROR("shell command argument contains a newline or carriage return: \"%s\"", value);
         free(buf.data);
         return NULL;
       }
@@ -178,7 +179,7 @@ char *psql_get_variable(const char *varname, PsqlScanQuoteType quote, void *pass
  */
 void NoticeProcessor(void *arg, const char *message) {
   (void)arg; /* not used */
-  pg_log_info("%s", message);
+  PSQL_LOG_INFO("%s", message);
 }
 
 /*
@@ -239,7 +240,7 @@ static bool CheckConnection(void) {
   OK = ConnectionUp();
   if (!OK) {
     if (!pset.cur_cmd_interactive) {
-      pg_log_error("connection to server was lost");
+      PSQL_LOG_ERROR("connection to server was lost");
       exit(EXIT_BADCONN);
     }
 
@@ -307,14 +308,14 @@ static bool AcceptResult(const PGresult *result, bool show_error) {
 
       default:
         OK = false;
-        pg_log_error("unexpected PQresultStatus: %d", PQresultStatus(result));
+        PSQL_LOG_ERROR("unexpected PQresultStatus: %d", PQresultStatus(result));
         break;
     }
 
   if (!OK && show_error) {
     const char *error = PQerrorMessage(pset.db);
 
-    if (strlen(error)) pg_log_info("%s", error);
+    if (strlen(error)) PSQL_LOG_INFO("%s", error);
 
     CheckConnection();
   }
@@ -451,7 +452,7 @@ PGresult *PSQLexec(const char *query) {
   PGresult *res;
 
   if (!pset.db) {
-    pg_log_error("You are currently not connected to a database.");
+    PSQL_LOG_ERROR("You are currently not connected to a database.");
     return NULL;
   }
 
@@ -502,7 +503,7 @@ int PSQLexecWatch(const char *query, const printQueryOpt *opt, FILE *printQueryF
   int res;
 
   if (!pset.db) {
-    pg_log_error("You are currently not connected to a database.");
+    PSQL_LOG_ERROR("You are currently not connected to a database.");
     return 0;
   }
 
@@ -558,7 +559,7 @@ static bool PrintQueryTuples(const PGresult *result, const printQueryOpt *opt, F
 
     printQuery(result, &pset.popt, fout, false, pset.logfile);
     if (ferror(fout)) {
-      pg_log_error("could not print result table: %m");
+      PSQL_LOG_ERROR("could not print result table: %m");
       ok = false;
     }
 
@@ -572,7 +573,7 @@ static bool PrintQueryTuples(const PGresult *result, const printQueryOpt *opt, F
 
     printQuery(result, opt ? opt : &pset.popt, fout, false, pset.logfile);
     if (ferror(fout)) {
-      pg_log_error("could not print result table: %m");
+      PSQL_LOG_ERROR("could not print result table: %m");
       ok = false;
     }
   }
@@ -589,10 +590,10 @@ static bool StoreQueryTuple(const PGresult *result) {
   bool success = true;
 
   if (PQntuples(result) < 1) {
-    pg_log_error("no rows returned for \\gset");
+    PSQL_LOG_ERROR("no rows returned for \\gset");
     success = false;
   } else if (PQntuples(result) > 1) {
-    pg_log_error("more than one row returned for \\gset");
+    PSQL_LOG_ERROR("more than one row returned for \\gset");
     success = false;
   } else {
     int i;
@@ -606,7 +607,7 @@ static bool StoreQueryTuple(const PGresult *result) {
       varname = psprintf("%s%s", pset.gset_prefix, colname);
 
       if (pset.vars.VariableHasHook(varname)) {
-        pg_log_warning("attempt to \\gset into specially treated variable \"%s\" ignored", varname);
+        PSQL_LOG_WARN("attempt to \\gset into specially treated variable \"%s\" ignored", varname);
         continue;
       }
 
@@ -857,7 +858,7 @@ static bool PrintQueryResult(PGresult *result, bool last, bool is_watch, const p
 
     default:
       success = false;
-      pg_log_error("unexpected PQresultStatus: %d", PQresultStatus(result));
+      PSQL_LOG_ERROR("unexpected PQresultStatus: %d", PQresultStatus(result));
       break;
   }
 
@@ -888,7 +889,7 @@ bool SendQuery(const char *query) {
   bool svpt_gone = false;
 
   if (!pset.db) {
-    pg_log_error("You are currently not connected to a database.");
+    PSQL_LOG_ERROR("You are currently not connected to a database.");
     goto sendquery_cleanup;
   }
 
@@ -927,7 +928,7 @@ bool SendQuery(const char *query) {
 
     result = PQexec(pset.db, "BEGIN");
     if (PQresultStatus(result) != PGRES_COMMAND_OK) {
-      pg_log_info("%s", PQerrorMessage(pset.db));
+      PSQL_LOG_INFO("%s", PQerrorMessage(pset.db));
       ClearOrSaveResult(result);
       goto sendquery_cleanup;
     }
@@ -941,7 +942,7 @@ bool SendQuery(const char *query) {
 
     result = PQexec(pset.db, "SAVEPOINT pg_psql_temporary_savepoint");
     if (PQresultStatus(result) != PGRES_COMMAND_OK) {
-      pg_log_info("%s", PQerrorMessage(pset.db));
+      PSQL_LOG_INFO("%s", PQerrorMessage(pset.db));
       ClearOrSaveResult(result);
       goto sendquery_cleanup;
     }
@@ -960,7 +961,7 @@ bool SendQuery(const char *query) {
     OK = ExecQueryUsingCursor(query, &elapsed_msec);
   }
 
-  if (!OK && pset.echo == PSQL_ECHO_ERRORS) pg_log_info("STATEMENT:  %s", query);
+  if (!OK && pset.echo == PSQL_ECHO_ERRORS) PSQL_LOG_INFO("STATEMENT:  %s", query);
 
   /* If we made a temporary savepoint, possibly release/rollback */
   if (on_error_rollback_savepoint) {
@@ -993,7 +994,7 @@ bool SendQuery(const char *query) {
         OK = false;
         /* PQTRANS_UNKNOWN is expected given a broken connection. */
         if (transaction_status != PQTRANS_UNKNOWN || ConnectionUp())
-          pg_log_error("unexpected transaction status (%d)", transaction_status);
+          PSQL_LOG_ERROR("unexpected transaction status (%d)", transaction_status);
         break;
     }
 
@@ -1002,7 +1003,7 @@ bool SendQuery(const char *query) {
 
       svptres = PQexec(pset.db, svptcmd);
       if (PQresultStatus(svptres) != PGRES_COMMAND_OK) {
-        pg_log_info("%s", PQerrorMessage(pset.db));
+        PSQL_LOG_INFO("%s", PQerrorMessage(pset.db));
         ClearOrSaveResult(svptres);
         OK = false;
 
@@ -1095,7 +1096,7 @@ static bool DescribeQuery(const char *query, double *elapsed_msec) {
    */
   result = PQprepare(pset.db, "", query, 0, NULL);
   if (PQresultStatus(result) != PGRES_COMMAND_OK) {
-    pg_log_info("%s", PQerrorMessage(pset.db));
+    PSQL_LOG_INFO("%s", PQerrorMessage(pset.db));
     SetResultVariables(result, false);
     ClearOrSaveResult(result);
     return false;
@@ -1126,7 +1127,7 @@ static bool DescribeQuery(const char *query, double *elapsed_msec) {
         escname = PQescapeLiteral(pset.db, name, strlen(name));
 
         if (escname == NULL) {
-          pg_log_info("%s", PQerrorMessage(pset.db));
+          PSQL_LOG_INFO("%s", PQerrorMessage(pset.db));
           PQclear(result);
           termPQExpBuffer(&buf);
           return false;
@@ -1197,7 +1198,7 @@ static int ExecQueryAndProcessResults(const char *query, double *elapsed_msec, b
   if (!success) {
     const char *error = PQerrorMessage(pset.db);
 
-    if (strlen(error)) pg_log_info("%s", error);
+    if (strlen(error)) PSQL_LOG_INFO("%s", error);
 
     CheckConnection();
 
@@ -1229,7 +1230,7 @@ static int ExecQueryAndProcessResults(const char *query, double *elapsed_msec, b
        */
       const char *error = PQresultErrorMessage(result);
 
-      if (strlen(error)) pg_log_info("%s", error);
+      if (strlen(error)) PSQL_LOG_INFO("%s", error);
 
       CheckConnection();
       if (!is_watch) SetResultVariables(result, false);
@@ -1284,7 +1285,7 @@ static int ExecQueryAndProcessResults(const char *query, double *elapsed_msec, b
     if (result_status == PGRES_COPY_IN || result_status == PGRES_COPY_OUT) {
       if (is_watch) {
         ClearOrSaveAllResults();
-        pg_log_error("\\watch cannot be used with COPY");
+        PSQL_LOG_ERROR("\\watch cannot be used with COPY");
         return -1;
       }
 

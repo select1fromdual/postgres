@@ -1493,7 +1493,7 @@ static bool ends_with(const char *s, char c) {
  */
 static char **psql_completion(const char *text, int start, int end) {
   /* This is the variable we'll return. */
-  char **matches = NULL;
+  char **matches = nullptr;
 
   /* Workspace for parsed words. */
   char *words_buffer;

@@ -10,7 +10,7 @@
 #include "common.h"
 #include "input.h"
 #include "mainloop.h"
-
+#include "logger.h"
 #include "prompt.h"
 #include "settings.h"
 
@@ -39,12 +39,12 @@ int MainLoop(FILE *source) {
   int added_nl_pos;
   bool success;
   bool line_saved_in_history;
-  volatile int successResult = EXIT_SUCCESS;
-  volatile backslashResult slashCmdStatus = PSQL_CMD_UNKNOWN;
-  volatile promptStatus_t prompt_status = PROMPT_READY;
-  volatile bool need_redisplay = false;
-  volatile int count_eof = 0;
-  volatile bool die_on_error = false;
+  int successResult = EXIT_SUCCESS;
+  backslashResult slashCmdStatus = PSQL_CMD_UNKNOWN;
+  promptStatus_t prompt_status = PROMPT_READY;
+  bool need_redisplay = false;
+  int count_eof = 0;
+  bool die_on_error = false;
   FILE *prev_cmd_source;
   bool prev_cmd_interactive;
   uint64 prev_lineno;
@@ -70,7 +70,7 @@ int MainLoop(FILE *source) {
   previous_buf = createPQExpBuffer();
   history_buf = createPQExpBuffer();
   if (PQExpBufferBroken(query_buf) || PQExpBufferBroken(previous_buf) || PQExpBufferBroken(history_buf))
-    pg_fatal("out of memory");
+    PSQL_LOG_ERROR("out of memory");
 
   /* main loop to get queries and execute them */
   while (successResult == EXIT_SUCCESS) {
@@ -117,7 +117,7 @@ int MainLoop(FILE *source) {
          * exit from the innermost \if.
          */
         if (!conditional_stack_empty(cond_stack)) {
-          pg_log_error("\\if: escaped");
+          PSQL_LOG_ERROR("\\if: escaped");
           conditional_stack_pop(cond_stack);
         }
       } else {
@@ -339,7 +339,7 @@ int MainLoop(FILE *source) {
       scan_result = psql_scan(scan_state, query_buf, &prompt_tmp);
       prompt_status = prompt_tmp;
 
-      if (PQExpBufferBroken(query_buf)) pg_fatal("out of memory");
+      if (PQExpBufferBroken(query_buf)) PSQL_LOG_ERROR("out of memory");
 
       /*
        * Increase statement line number counter for each linebreak added
@@ -390,7 +390,8 @@ int MainLoop(FILE *source) {
           /* we need not do psql_scan_reset() here */
         } else {
           /* if interactive, warn about non-executed query */
-          if (pset.cur_cmd_interactive) pg_log_error("query ignored; use \\endif or Ctrl-C to exit current \\if block");
+          if (pset.cur_cmd_interactive)
+            PSQL_LOG_ERROR("query ignored; use \\endif or Ctrl-C to exit current \\if block");
           /* fake an OK result for purposes of loop checks */
           success = true;
           slashCmdStatus = PSQL_CMD_SEND;
@@ -520,7 +521,7 @@ int MainLoop(FILE *source) {
     if (conditional_active(cond_stack)) {
       success = SendQuery(query_buf->data);
     } else {
-      if (pset.cur_cmd_interactive) pg_log_error("query ignored; use \\endif or Ctrl-C to exit current \\if block");
+      if (pset.cur_cmd_interactive) PSQL_LOG_ERROR("query ignored; use \\endif or Ctrl-C to exit current \\if block");
       success = true;
     }
 
@@ -535,7 +536,7 @@ int MainLoop(FILE *source) {
    * script is erroring out
    */
   if (slashCmdStatus != PSQL_CMD_TERMINATE && successResult != EXIT_USER && !conditional_stack_empty(cond_stack)) {
-    pg_log_error("reached EOF without finding closing \\endif(s)");
+    PSQL_LOG_ERROR("reached EOF without finding closing \\endif(s)");
     if (die_on_error && !pset.cur_cmd_interactive) successResult = EXIT_USER;
   }
 

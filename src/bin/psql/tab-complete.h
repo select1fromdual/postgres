@@ -5,12 +5,9 @@
  *
  * src/bin/psql/tab-complete.h
  */
-#ifndef TAB_COMPLETE_H
-#define TAB_COMPLETE_H
+#pragma once
 
 #include "psqlf.h"
 extern PQExpBuffer tab_completion_query_buf;
 
 extern void initialize_readline(void);
-
-#endif /* TAB_COMPLETE_H */

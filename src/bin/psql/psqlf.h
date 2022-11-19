@@ -5,7 +5,6 @@ extern "C" {
 #include "libpq-fe.h"
 #include "portability/instr_time.h"
 #include "postgres_fe.h"
-#include "common/logging.h"
 #include "common/string.h"
 #include "fe_utils/print.h"
 #include "fe_utils/conditional.h"
@@ -23,6 +22,7 @@ extern "C" {
 #include "catalog/pg_am_d.h"
 #include "catalog/pg_class_d.h"
 #include "common/keywords.h"
+#include "fe_utils/psqlscan_int.h"
 
 struct PQExpBufferData;
 struct pg_result;

@@ -3,7 +3,7 @@
 #include <signal.h>
 #include <sys/stat.h>
 #include <unistd.h> /* for isatty */
-
+#include "logger.h"
 #include "common.h"
 #include "copy.h"
 #include "prompt.h"
@@ -69,7 +69,7 @@ static struct copy_options *parse_slash_copy(const char *args) {
   char nonstd_backslash = standard_strings() ? 0 : '\\';
 
   if (!args) {
-    pg_log_error("\\copy: arguments required");
+    PSQL_LOG_ERROR("\\copy: arguments required");
     return NULL;
   }
 
@@ -185,9 +185,9 @@ static struct copy_options *parse_slash_copy(const char *args) {
 
 error:
   if (token)
-    pg_log_error("\\copy: parse error at \"%s\"", token);
+    PSQL_LOG_ERROR("\\copy: parse error at \"%s\"", token);
   else
-    pg_log_error("\\copy: parse error at end of line");
+    PSQL_LOG_ERROR("\\copy: parse error at end of line");
   free_copy_options(result);
 
   return NULL;
@@ -241,9 +241,9 @@ bool do_copy(const char *args) {
 
   if (!copystream) {
     if (options->program)
-      pg_log_error("could not execute command \"%s\": %m", options->file);
+      PSQL_LOG_ERROR("could not execute command \"%s\": %m", options->file);
     else
-      pg_log_error("%s: %m", options->file);
+      PSQL_LOG_ERROR("%s: %m", options->file);
     free_copy_options(options);
     return false;
   }
@@ -253,9 +253,9 @@ bool do_copy(const char *args) {
     int result;
 
     /* make sure the specified file is not a directory */
-    if ((result = fstat(fileno(copystream), &st)) < 0) pg_log_error("could not stat file \"%s\": %m", options->file);
+    if ((result = fstat(fileno(copystream), &st)) < 0) PSQL_LOG_ERROR("could not stat file \"%s\": %m", options->file);
 
-    if (result == 0 && S_ISDIR(st.st_mode)) pg_log_error("%s: cannot copy from/to a directory", options->file);
+    if (result == 0 && S_ISDIR(st.st_mode)) PSQL_LOG_ERROR("%s: cannot copy from/to a directory", options->file);
 
     if (result < 0 || S_ISDIR(st.st_mode)) {
       fclose(copystream);
@@ -286,11 +286,11 @@ bool do_copy(const char *args) {
 
       if (pclose_rc != 0) {
         if (pclose_rc < 0)
-          pg_log_error("could not close pipe to external command: %m");
+          PSQL_LOG_ERROR("could not close pipe to external command: %m");
         else {
           char *reason = wait_result_to_str(pclose_rc);
 
-          pg_log_error("%s: %s", options->file, reason ? reason : "");
+          PSQL_LOG_ERROR("%s: %s", options->file, reason ? reason : "");
           free(reason);
         }
         success = false;
@@ -298,7 +298,7 @@ bool do_copy(const char *args) {
       restore_sigpipe_trap();
     } else {
       if (fclose(copystream) != 0) {
-        pg_log_error("%s: %m", options->file);
+        PSQL_LOG_ERROR("%s: %m", options->file);
         success = false;
       }
     }
@@ -341,7 +341,7 @@ bool handleCopyOut(PGconn *conn, FILE *copystream, PGresult **res) {
 
     if (buf) {
       if (OK && copystream && fwrite(buf, 1, ret, copystream) != ret) {
-        pg_log_error("could not write COPY data: %m");
+        PSQL_LOG_ERROR("could not write COPY data: %m");
         /* complain only once, keep reading data from server */
         OK = false;
       }
@@ -350,12 +350,12 @@ bool handleCopyOut(PGconn *conn, FILE *copystream, PGresult **res) {
   }
 
   if (OK && copystream && fflush(copystream)) {
-    pg_log_error("could not write COPY data: %m");
+    PSQL_LOG_ERROR("could not write COPY data: %m");
     OK = false;
   }
 
   if (ret == -2) {
-    pg_log_error("COPY data transfer failed: %s", PQerrorMessage(conn));
+    PSQL_LOG_ERROR("COPY data transfer failed: %s", PQerrorMessage(conn));
     OK = false;
   }
 
@@ -373,7 +373,7 @@ bool handleCopyOut(PGconn *conn, FILE *copystream, PGresult **res) {
    */
   *res = PQgetResult(conn);
   if (PQresultStatus(*res) != PGRES_COMMAND_OK) {
-    pg_log_info("%s", PQerrorMessage(conn));
+    PSQL_LOG_INFO("%s", PQerrorMessage(conn));
     OK = false;
   }
 
@@ -577,7 +577,7 @@ copyin_cleanup:
     PQputCopyEnd(conn, (PQprotocolVersion(conn) < 3) ? NULL : _("trying to exit copy mode"));
   }
   if (PQresultStatus(*res) != PGRES_COMMAND_OK) {
-    pg_log_info("%s", PQerrorMessage(conn));
+    PSQL_LOG_INFO("%s", PQerrorMessage(conn));
     OK = false;
   }
 
