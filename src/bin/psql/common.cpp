@@ -107,7 +107,7 @@ char *psql_get_variable(const char *varname, PsqlScanQuoteType quote, void *pass
   /* In an inactive \if branch, suppress all variable substitutions */
   if (passthrough && !conditional_active((ConditionalStack)passthrough)) return NULL;
 
-  value = GetVariable(pset.vars, varname);
+  value = pset.vars.GetVariable(varname);
   if (!value) return NULL;
 
   switch (quote) {
@@ -337,24 +337,24 @@ static void SetResultVariables(PGresult *result, bool success) {
   if (success) {
     const char *ntuples = PQcmdTuples(result);
 
-    SetVariable(pset.vars, "ERROR", "false");
-    SetVariable(pset.vars, "SQLSTATE", "00000");
-    SetVariable(pset.vars, "ROW_COUNT", *ntuples ? ntuples : "0");
+    pset.vars.SetVariable("ERROR", "false");
+    pset.vars.SetVariable("SQLSTATE", "00000");
+    pset.vars.SetVariable("ROW_COUNT", *ntuples ? ntuples : "0");
   } else {
     const char *code = PQresultErrorField(result, PG_DIAG_SQLSTATE);
     const char *mesg = PQresultErrorField(result, PG_DIAG_MESSAGE_PRIMARY);
 
-    SetVariable(pset.vars, "ERROR", "true");
+    pset.vars.SetVariable("ERROR", "true");
 
     /*
      * If there is no SQLSTATE code, use an empty string.  This can happen
      * for libpq-detected errors (e.g., lost connection, ENOMEM).
      */
     if (code == NULL) code = "";
-    SetVariable(pset.vars, "SQLSTATE", code);
-    SetVariable(pset.vars, "ROW_COUNT", "0");
-    SetVariable(pset.vars, "LAST_ERROR_SQLSTATE", code);
-    SetVariable(pset.vars, "LAST_ERROR_MESSAGE", mesg ? mesg : "");
+    pset.vars.SetVariable("SQLSTATE", code);
+    pset.vars.SetVariable("ROW_COUNT", "0");
+    pset.vars.SetVariable("LAST_ERROR_SQLSTATE", code);
+    pset.vars.SetVariable("LAST_ERROR_MESSAGE", mesg ? mesg : "");
   }
 }
 
@@ -605,7 +605,7 @@ static bool StoreQueryTuple(const PGresult *result) {
       /* concatenate prefix and column name */
       varname = psprintf("%s%s", pset.gset_prefix, colname);
 
-      if (VariableHasHook(pset.vars, varname)) {
+      if (pset.vars.VariableHasHook(varname)) {
         pg_log_warning("attempt to \\gset into specially treated variable \"%s\" ignored", varname);
         continue;
       }
@@ -617,7 +617,7 @@ static bool StoreQueryTuple(const PGresult *result) {
         value = NULL;
       }
 
-      if (!SetVariable(pset.vars, varname, value)) {
+      if (!pset.vars.SetVariable(varname, value)) {
         free(varname);
         success = false;
         break;
@@ -793,7 +793,7 @@ static void PrintQueryStatus(PGresult *result, FILE *printQueryFout) {
   if (pset.logfile) fprintf(pset.logfile, "%s\n", PQcmdStatus(result));
 
   snprintf(buf, sizeof(buf), "%u", (unsigned int)PQoidValue(result));
-  SetVariable(pset.vars, "LASTOID", buf);
+  pset.vars.SetVariable("LASTOID", buf);
 }
 
 /*
@@ -1021,7 +1021,7 @@ bool SendQuery(const char *query) {
     /* track effects of SET CLIENT_ENCODING */
     pset.encoding = PQclientEncoding(pset.db);
     pset.popt.topt.encoding = pset.encoding;
-    SetVariable(pset.vars, "ENCODING", pg_encoding_to_char(pset.encoding));
+    pset.vars.SetVariable("ENCODING", pg_encoding_to_char(pset.encoding));
   }
 
   PrintNotifications();
@@ -1524,10 +1524,10 @@ static bool ExecQueryUsingCursor(const char *query, double *elapsed_msec) {
      */
     char buf[32];
 
-    SetVariable(pset.vars, "ERROR", "false");
-    SetVariable(pset.vars, "SQLSTATE", "00000");
+    pset.vars.SetVariable("ERROR", "false");
+    pset.vars.SetVariable("SQLSTATE", "00000");
     snprintf(buf, sizeof(buf), INT64_FORMAT, total_tuples);
-    SetVariable(pset.vars, "ROW_COUNT", buf);
+    pset.vars.SetVariable("ROW_COUNT", buf);
   }
 
 cleanup:

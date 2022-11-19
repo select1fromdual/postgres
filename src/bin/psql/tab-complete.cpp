@@ -4909,9 +4909,9 @@ static char **complete_from_variables(const char *text, const char *prefix, cons
 
   varnames = (char **)pg_malloc((maxvars + 1) * sizeof(char *));
 
-  for (ptr = pset.vars->next; ptr; ptr = ptr->next) {
-    if (need_value && !(ptr->value)) continue;
-    append_variable_names(&varnames, &nvars, &maxvars, ptr->name, prefix, suffix);
+  for (auto i = pset.vars.begin(); i != pset.vars.end(); i++) {
+    if (need_value && !(i->second->value)) continue;
+    append_variable_names(&varnames, &nvars, &maxvars, i->first, prefix, suffix);
   }
 
   varnames[nvars] = NULL;

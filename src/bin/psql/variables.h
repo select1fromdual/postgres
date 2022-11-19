@@ -14,6 +14,7 @@
 
 #include <functional>
 #include <unordered_map>
+#include "psqlf.h"
 
 /*
  * Variables can be given "assign hook" functions.  The assign hook can
@@ -65,6 +66,8 @@ struct _variable {
   char *value;
   VariableSubstituteHook substitute_hook;
   VariableAssignHook assign_hook;
+  _variable(char *v, VariableSubstituteHook f1, VariableAssignHook f2)
+      : value(v), substitute_hook(f1), assign_hook(f2) {}
 };
 
 using variable = std::unordered_map<char *, _variable *>;
@@ -74,10 +77,10 @@ class VariableSpace {
   variable variable_;
 
  public:
-  variables() = default;
-  ~variables();
+  // variables() = default;
+  ~VariableSpace();
 
-  const char *GetVariable(const char *name) { return _variable[name].value; }
+  const char *GetVariable(const char *name) { return variable_[const_cast<char *>(name)]->value; }
   void PrintVariables() {
     for (const auto &[key, value] : variable_) {
       if (value->value) printf("%s = '%s'\n", key, value->value);
@@ -85,26 +88,17 @@ class VariableSpace {
     }
   }
 
-  bool SetVariable(VariableSpace space, const char *name, const char *value);
+  variable::iterator begin() { return variable_.begin(); }
+  variable::iterator end() { return variable_.end(); }
+
+  bool SetVariable(const char *name, const char *value);
+  bool SetVariableBool(const char *name);
+  bool DeleteVariable(const char *name);
+
+  void SetVariableHooks(const char *name, VariableSubstituteHook shook, VariableAssignHook ahook);
+  bool VariableHasHook(const char *name);
 };
 
-/* Data structure representing a set of variables */
-typedef struct _variable *VariableSpace;
-
-VariableSpace CreateVariableSpace(void);
-const char *GetVariable(VariableSpace space, const char *name);
-
 bool ParseVariableBool(const char *value, const char *name, bool *result);
-
 bool ParseVariableNum(const char *value, const char *name, int *result);
-
-void PrintVariables(VariableSpace space);
-
-bool SetVariable(VariableSpace space, const char *name, const char *value);
-bool SetVariableBool(VariableSpace space, const char *name);
-bool DeleteVariable(VariableSpace space, const char *name);
-
-void SetVariableHooks(VariableSpace space, const char *name, VariableSubstituteHook shook, VariableAssignHook ahook);
-bool VariableHasHook(VariableSpace space, const char *name);
-
 void PsqlVarEnumError(const char *name, const char *value, const char *suggestions);

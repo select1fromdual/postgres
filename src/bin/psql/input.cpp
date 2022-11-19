@@ -365,7 +365,7 @@ initializeInput(int flags)
 		using_history();
 		history_lines_added = 0;
 
-		histfile = GetVariable(pset.vars, "HISTFILE");
+		histfile = pset.vars.GetVariable("HISTFILE");
 
 		if (histfile == NULL)
 		{

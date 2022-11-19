@@ -143,20 +143,20 @@ int main(int argc, char *argv[]) {
   EstablishVariableSpace();
 
   /* Create variables showing psql version number */
-  SetVariable(pset.vars, "VERSION", PG_VERSION_STR);
-  SetVariable(pset.vars, "VERSION_NAME", PG_VERSION);
-  SetVariable(pset.vars, "VERSION_NUM", CppAsString2(PG_VERSION_NUM));
+  pset.vars.SetVariable("VERSION", PG_VERSION_STR);
+  pset.vars.SetVariable("VERSION_NAME", PG_VERSION);
+  pset.vars.SetVariable("VERSION_NUM", CppAsString2(PG_VERSION_NUM));
 
   /* Initialize variables for last error */
-  SetVariable(pset.vars, "LAST_ERROR_MESSAGE", "");
-  SetVariable(pset.vars, "LAST_ERROR_SQLSTATE", "00000");
+  pset.vars.SetVariable("LAST_ERROR_MESSAGE", "");
+  pset.vars.SetVariable("LAST_ERROR_SQLSTATE", "00000");
 
   /* Default values for variables (that don't match the result of \unset) */
-  SetVariableBool(pset.vars, "AUTOCOMMIT");
-  SetVariable(pset.vars, "PROMPT1", DEFAULT_PROMPT1);
-  SetVariable(pset.vars, "PROMPT2", DEFAULT_PROMPT2);
-  SetVariable(pset.vars, "PROMPT3", DEFAULT_PROMPT3);
-  SetVariableBool(pset.vars, "SHOW_ALL_RESULTS");
+  pset.vars.SetVariableBool("AUTOCOMMIT");
+  pset.vars.SetVariable("PROMPT1", DEFAULT_PROMPT1);
+  pset.vars.SetVariable("PROMPT2", DEFAULT_PROMPT2);
+  pset.vars.SetVariable("PROMPT3", DEFAULT_PROMPT3);
+  pset.vars.SetVariableBool("SHOW_ALL_RESULTS");
 
   parse_psql_options(argc, argv, &options);
 
@@ -423,13 +423,13 @@ static void parse_psql_options(int argc, char *argv[], struct adhoc_opts *option
          -1) {
     switch (c) {
       case 'a':
-        SetVariable(pset.vars, "ECHO", "all");
+        pset.vars.SetVariable("ECHO", "all");
         break;
       case 'A':
         pset.popt.topt.format = PRINT_UNALIGNED;
         break;
       case 'b':
-        SetVariable(pset.vars, "ECHO", "errors");
+        pset.vars.SetVariable("ECHO", "errors");
         break;
       case 'c':
         if (optarg[0] == '\\')
@@ -441,10 +441,10 @@ static void parse_psql_options(int argc, char *argv[], struct adhoc_opts *option
         options->dbname = pg_strdup(optarg);
         break;
       case 'e':
-        SetVariable(pset.vars, "ECHO", "queries");
+        pset.vars.SetVariable("ECHO", "queries");
         break;
       case 'E':
-        SetVariableBool(pset.vars, "ECHO_HIDDEN");
+        pset.vars.SetVariableBool("ECHO_HIDDEN");
         break;
       case 'f':
         simple_action_list_append(&options->actions, ACT_FILE, optarg);
@@ -494,17 +494,17 @@ static void parse_psql_options(int argc, char *argv[], struct adhoc_opts *option
         break;
       }
       case 'q':
-        SetVariableBool(pset.vars, "QUIET");
+        pset.vars.SetVariableBool("QUIET");
         break;
       case 'R':
         pset.popt.topt.recordSep.separator = pg_strdup(optarg);
         pset.popt.topt.recordSep.separator_zero = false;
         break;
       case 's':
-        SetVariableBool(pset.vars, "SINGLESTEP");
+        pset.vars.SetVariableBool("SINGLESTEP");
         break;
       case 'S':
-        SetVariableBool(pset.vars, "SINGLELINE");
+        pset.vars.SetVariableBool("SINGLELINE");
         break;
       case 't':
         pset.popt.topt.tuples_only = true;
@@ -522,10 +522,10 @@ static void parse_psql_options(int argc, char *argv[], struct adhoc_opts *option
         value = pg_strdup(optarg);
         equal_loc = strchr(value, '=');
         if (!equal_loc) {
-          if (!DeleteVariable(pset.vars, value)) exit(EXIT_FAILURE); /* error already printed */
+          if (!pset.vars.DeleteVariable(value)) exit(EXIT_FAILURE); /* error already printed */
         } else {
           *equal_loc = '\0';
-          if (!SetVariable(pset.vars, value, equal_loc + 1)) exit(EXIT_FAILURE); /* error already printed */
+          if (!pset.vars.SetVariable(value, equal_loc + 1)) exit(EXIT_FAILURE); /* error already printed */
         }
 
         free(value);
@@ -935,28 +935,28 @@ static bool hide_tableam_hook(const char *newval) {
 }
 
 static void EstablishVariableSpace(void) {
-  pset.vars = CreateVariableSpace();
+  pset.vars;
 
-  SetVariableHooks(pset.vars, "AUTOCOMMIT", bool_substitute_hook, autocommit_hook);
-  SetVariableHooks(pset.vars, "ON_ERROR_STOP", bool_substitute_hook, on_error_stop_hook);
-  SetVariableHooks(pset.vars, "QUIET", bool_substitute_hook, quiet_hook);
-  SetVariableHooks(pset.vars, "SINGLELINE", bool_substitute_hook, singleline_hook);
-  SetVariableHooks(pset.vars, "SINGLESTEP", bool_substitute_hook, singlestep_hook);
-  SetVariableHooks(pset.vars, "FETCH_COUNT", fetch_count_substitute_hook, fetch_count_hook);
-  SetVariableHooks(pset.vars, "HISTFILE", NULL, histfile_hook);
-  SetVariableHooks(pset.vars, "HISTSIZE", histsize_substitute_hook, histsize_hook);
-  SetVariableHooks(pset.vars, "IGNOREEOF", ignoreeof_substitute_hook, ignoreeof_hook);
-  SetVariableHooks(pset.vars, "ECHO", echo_substitute_hook, echo_hook);
-  SetVariableHooks(pset.vars, "ECHO_HIDDEN", bool_substitute_hook, echo_hidden_hook);
-  SetVariableHooks(pset.vars, "ON_ERROR_ROLLBACK", bool_substitute_hook, on_error_rollback_hook);
-  SetVariableHooks(pset.vars, "COMP_KEYWORD_CASE", comp_keyword_case_substitute_hook, comp_keyword_case_hook);
-  SetVariableHooks(pset.vars, "HISTCONTROL", histcontrol_substitute_hook, histcontrol_hook);
-  SetVariableHooks(pset.vars, "PROMPT1", NULL, prompt1_hook);
-  SetVariableHooks(pset.vars, "PROMPT2", NULL, prompt2_hook);
-  SetVariableHooks(pset.vars, "PROMPT3", NULL, prompt3_hook);
-  SetVariableHooks(pset.vars, "VERBOSITY", verbosity_substitute_hook, verbosity_hook);
-  SetVariableHooks(pset.vars, "SHOW_ALL_RESULTS", bool_substitute_hook, show_all_results_hook);
-  SetVariableHooks(pset.vars, "SHOW_CONTEXT", show_context_substitute_hook, show_context_hook);
-  SetVariableHooks(pset.vars, "HIDE_TOAST_COMPRESSION", bool_substitute_hook, hide_compression_hook);
-  SetVariableHooks(pset.vars, "HIDE_TABLEAM", bool_substitute_hook, hide_tableam_hook);
+  pset.vars.SetVariableHooks("AUTOCOMMIT", bool_substitute_hook, autocommit_hook);
+  pset.vars.SetVariableHooks("ON_ERROR_STOP", bool_substitute_hook, on_error_stop_hook);
+  pset.vars.SetVariableHooks("QUIET", bool_substitute_hook, quiet_hook);
+  pset.vars.SetVariableHooks("SINGLELINE", bool_substitute_hook, singleline_hook);
+  pset.vars.SetVariableHooks("SINGLESTEP", bool_substitute_hook, singlestep_hook);
+  pset.vars.SetVariableHooks("FETCH_COUNT", fetch_count_substitute_hook, fetch_count_hook);
+  pset.vars.SetVariableHooks("HISTFILE", NULL, histfile_hook);
+  pset.vars.SetVariableHooks("HISTSIZE", histsize_substitute_hook, histsize_hook);
+  pset.vars.SetVariableHooks("IGNOREEOF", ignoreeof_substitute_hook, ignoreeof_hook);
+  pset.vars.SetVariableHooks("ECHO", echo_substitute_hook, echo_hook);
+  pset.vars.SetVariableHooks("ECHO_HIDDEN", bool_substitute_hook, echo_hidden_hook);
+  pset.vars.SetVariableHooks("ON_ERROR_ROLLBACK", bool_substitute_hook, on_error_rollback_hook);
+  pset.vars.SetVariableHooks("COMP_KEYWORD_CASE", comp_keyword_case_substitute_hook, comp_keyword_case_hook);
+  pset.vars.SetVariableHooks("HISTCONTROL", histcontrol_substitute_hook, histcontrol_hook);
+  pset.vars.SetVariableHooks("PROMPT1", NULL, prompt1_hook);
+  pset.vars.SetVariableHooks("PROMPT2", NULL, prompt2_hook);
+  pset.vars.SetVariableHooks("PROMPT3", NULL, prompt3_hook);
+  pset.vars.SetVariableHooks("VERBOSITY", verbosity_substitute_hook, verbosity_hook);
+  pset.vars.SetVariableHooks("SHOW_ALL_RESULTS", bool_substitute_hook, show_all_results_hook);
+  pset.vars.SetVariableHooks("SHOW_CONTEXT", show_context_substitute_hook, show_context_hook);
+  pset.vars.SetVariableHooks("HIDE_TOAST_COMPRESSION", bool_substitute_hook, hide_compression_hook);
+  pset.vars.SetVariableHooks("HIDE_TABLEAM", bool_substitute_hook, hide_tableam_hook);
 }

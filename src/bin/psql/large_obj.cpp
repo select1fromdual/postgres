@@ -167,7 +167,7 @@ bool do_lo_import(const char *filename_arg, const char *comment_arg) {
     char *bufptr;
     size_t slen = strlen(comment_arg);
 
-    cmdbuf = (char*)malloc(slen * 2 + 256);
+    cmdbuf = (char *)malloc(slen * 2 + 256);
     if (!cmdbuf) return fail_lo_xact("\\lo_import", own_transaction);
     sprintf(cmdbuf, "COMMENT ON LARGE OBJECT %u IS '", loid);
     bufptr = cmdbuf + strlen(cmdbuf);
@@ -188,7 +188,7 @@ bool do_lo_import(const char *filename_arg, const char *comment_arg) {
   print_lo_result("lo_import %u", loid);
 
   sprintf(oidbuf, "%u", loid);
-  SetVariable(pset.vars, "LASTOID", oidbuf);
+  pset.vars.SetVariable("LASTOID", oidbuf);
 
   return true;
 }

@@ -8,7 +8,13 @@
 
 #include "variables.h"
 
-#include "psqlf.h"
+VariableSpace::~VariableSpace() {
+  for (auto &[key, val] : variable_) {
+    if (val->value) free(val->value);
+    free(key);
+  }
+  variable_.clear();
+}
 
 /*
  * Check whether a variable's name is allowed.
@@ -27,56 +33,13 @@ static bool valid_variable_name(const char *name) {
     if (IS_HIGHBIT_SET(*ptr) || strchr("ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                                        "abcdefghijklmnopqrstuvwxyz"
                                        "_0123456789",
-                                       *ptr) != NULL)
+                                       *ptr) != nullptr)
       ptr++;
     else
       return false;
   }
 
   return true;
-}
-
-/*
- * A "variable space" is represented by an otherwise-unused struct _variable
- * that serves as list header.
- *
- * The list entries are kept in name order (according to strcmp).  This
- * is mainly to make the output of PrintVariables() more pleasing.
- */
-VariableSpace CreateVariableSpace(void) {
-  struct _variable *ptr;
-
-  ptr = (_variable *)malloc(sizeof(_variable));
-  ptr->name = NULL;
-  ptr->value = NULL;
-  ptr->substitute_hook = NULL;
-  ptr->assign_hook = NULL;
-  ptr->next = NULL;
-
-  return ptr;
-}
-
-/*
- * Get string value of variable, or NULL if it's not defined.
- *
- * Note: result is valid until variable is next assigned to.
- */
-const char *GetVariable(VariableSpace space, const char *name) {
-  struct _variable *current;
-
-  if (!space) return NULL;
-
-  for (current = space->next; current; current = current->next) {
-    int cmp = strcmp(current->name, name);
-
-    if (cmp == 0) {
-      /* this is correct answer when value is NULL, too */
-      return current->value;
-    }
-    if (cmp > 0) break; /* it's not there */
-  }
-
-  return NULL;
 }
 
 /*
@@ -87,7 +50,7 @@ const char *GetVariable(VariableSpace space, const char *name) {
  * prefixes thereof.
  *
  * "name" is the name of the variable we're assigning to, to use in error
- * report if any.  Pass name == NULL to suppress the error report.
+ * report if any.  Pass name == nullptr to suppress the error report.
  *
  * Return true when "value" is syntactically valid, false otherwise.
  */
@@ -96,7 +59,7 @@ bool ParseVariableBool(const char *value, const char *name, bool *result) {
   bool valid = true;
 
   /* Treat "unset" as an empty string, which will lead to error below */
-  if (value == NULL) value = "";
+  if (value == nullptr) value = "";
 
   len = strlen(value);
 
@@ -130,7 +93,7 @@ bool ParseVariableBool(const char *value, const char *name, bool *result) {
  * store it in *result.  Otherwise don't clobber *result.
  *
  * "name" is the name of the variable we're assigning to, to use in error
- * report if any.  Pass name == NULL to suppress the error report.
+ * report if any.  Pass name == nullptr to suppress the error report.
  *
  * Return true when "value" is syntactically valid, false otherwise.
  */
@@ -139,7 +102,7 @@ bool ParseVariableNum(const char *value, const char *name, int *result) {
   long numval;
 
   /* Treat "unset" as an empty string, which will lead to error below */
-  if (value == NULL) value = "";
+  if (value == nullptr) value = "";
 
   errno = 0;
   numval = strtol(value, &end, 0);
@@ -154,31 +117,15 @@ bool ParseVariableNum(const char *value, const char *name, int *result) {
 }
 
 /*
- * Print values of all variables.
- */
-void PrintVariables(VariableSpace space) {
-  struct _variable *ptr;
-
-  if (!space) return;
-
-  for (ptr = space->next; ptr; ptr = ptr->next) {
-    if (ptr->value) printf("%s = '%s'\n", ptr->name, ptr->value);
-    if (cancel_pressed) break;
-  }
-}
-
-/*
  * Set the variable named "name" to value "value",
- * or delete it if "value" is NULL.
+ * or delete it if "value" is nullptr.
  *
  * Returns true if successful, false if not; in the latter case a suitable
  * error message has been printed, except for the unexpected case of
- * space or name being NULL.
+ * space or name being nullptr.
  */
-bool SetVariable(VariableSpace space, const char *name, const char *value) {
-  struct _variable *current, *previous;
-
-  if (!space || !name) return false;
+bool VariableSpace::SetVariable(const char *name, const char *value) {
+  if (!name) return false;
 
   if (!valid_variable_name(name)) {
     /* Deletion of non-existent variable is not an error */
@@ -187,70 +134,57 @@ bool SetVariable(VariableSpace space, const char *name, const char *value) {
     return false;
   }
 
-  for (previous = space, current = space->next; current; previous = current, current = current->next) {
-    int cmp = strcmp(current->name, name);
+  if (auto kval = variable_.find(const_cast<char *>(name)); kval != variable_.end()) {
+    /*
+     * Found entry, so update, unless assign hook returns false.
+     *
+     * We must duplicate the passed value to start with.  This
+     * simplifies the API for substitute hooks.  Moreover, some assign
+     * hooks assume that the passed value has the same lifespan as the
+     * variable.  Having to free the string again on failure is a
+     * small price to pay for keeping these APIs simple.
+     */
+    auto val = kval->second;
+    char *new_value = value ? strdup(value) : nullptr;
+    bool confirmed;
 
-    if (cmp == 0) {
+    if (val->substitute_hook) new_value = val->substitute_hook(new_value);
+
+    if (val->assign_hook)
+      confirmed = val->assign_hook(new_value);
+    else
+      confirmed = true;
+
+    if (confirmed) {
+      free(val->value);
+      val->value = new_value;
+
       /*
-       * Found entry, so update, unless assign hook returns false.
-       *
-       * We must duplicate the passed value to start with.  This
-       * simplifies the API for substitute hooks.  Moreover, some assign
-       * hooks assume that the passed value has the same lifespan as the
-       * variable.  Having to free the string again on failure is a
-       * small price to pay for keeping these APIs simple.
+       * If we deleted the value, and there are no hooks to
+       * remember, we can discard the variable altogether.
        */
-      char *new_value = value ? strdup(value) : NULL;
-      bool confirmed;
+      if (new_value == nullptr && val->substitute_hook == nullptr && val->assign_hook == nullptr) {
+        free(val);
+        variable_.erase(kval);
+      }
+    } else
+      free(new_value); /* current->value is left unchanged */
 
-      if (current->substitute_hook) new_value = current->substitute_hook(new_value);
-
-      if (current->assign_hook)
-        confirmed = current->assign_hook(new_value);
-      else
-        confirmed = true;
-
-      if (confirmed) {
-        free(current->value);
-        current->value = new_value;
-
-        /*
-         * If we deleted the value, and there are no hooks to
-         * remember, we can discard the variable altogether.
-         */
-        if (new_value == NULL && current->substitute_hook == NULL && current->assign_hook == NULL) {
-          previous->next = current->next;
-          free(current->name);
-          free(current);
-        }
-      } else
-        free(new_value); /* current->value is left unchanged */
-
-      return confirmed;
-    }
-    if (cmp > 0) break; /* it's not there */
+    return confirmed;
   }
 
   /* not present, make new entry ... unless we were asked to delete */
-  if (value) {
-    current = (_variable *)malloc(sizeof(_variable));
-    current->name = strdup(name);
-    current->value = strdup(value);
-    current->substitute_hook = NULL;
-    current->assign_hook = NULL;
-    current->next = previous->next;
-    previous->next = current;
-  }
+  if (value) variable_[strdup(name)] = new _variable(strdup(value), nullptr, nullptr);
   return true;
 }
 
 /*
  * Attach substitute and/or assign hook functions to the named variable.
- * If you need only one hook, pass NULL for the other.
+ * If you need only one hook, pass nullptr for the other.
  *
- * If the variable doesn't already exist, create it with value NULL, just so
+ * If the variable doesn't already exist, create it with value nullptr, just so
  * we have a place to store the hook function(s).  (The substitute hook might
- * immediately change the NULL to something else; if not, this state is
+ * immediately change the nullptr to something else; if not, this state is
  * externally the same as the variable not being defined.)
  *
  * The substitute hook, if given, is immediately called on the variable's
@@ -260,54 +194,37 @@ bool SetVariable(VariableSpace space, const char *name, const char *value) {
  * but we'll ignore it.  Generally we do not expect any such failure here,
  * because this should get called before any user-supplied value is assigned.
  */
-void SetVariableHooks(VariableSpace space, const char *name, VariableSubstituteHook shook, VariableAssignHook ahook) {
-  struct _variable *current, *previous;
-
-  if (!space || !name) return;
+void VariableSpace::SetVariableHooks(const char *name, VariableSubstituteHook shook, VariableAssignHook ahook) {
+  if (!name) return;
 
   if (!valid_variable_name(name)) return;
 
-  for (previous = space, current = space->next; current; previous = current, current = current->next) {
-    int cmp = strcmp(current->name, name);
-
-    if (cmp == 0) {
-      /* found entry, so update */
-      current->substitute_hook = shook;
-      current->assign_hook = ahook;
-      if (shook) current->value = (*shook)(current->value);
-      if (ahook) (void)(*ahook)(current->value);
-      return;
-    }
-    if (cmp > 0) break; /* it's not there */
+  if (auto kval = variable_.find(const_cast<char *>(name)); kval != variable_.end()) {
+    /* found entry, so update */
+    auto val = kval->second;
+    val->substitute_hook = shook;
+    val->assign_hook = ahook;
+    if (shook) val->value = shook(val->value);
+    if (ahook) ahook(val->value);
+    return;
   }
 
-  /* not present, make new entry */
-  current = (_variable *)malloc(sizeof(_variable));
-  current->name = strdup(name);
-  current->value = NULL;
-  current->substitute_hook = shook;
-  current->assign_hook = ahook;
-  current->next = previous->next;
-  previous->next = current;
-  if (shook) current->value = (*shook)(current->value);
-  if (ahook) (void)(*ahook)(current->value);
+  auto key = strdup(name);
+  variable_[key] = new _variable(nullptr, shook, ahook);
+
+  if (shook) variable_[key]->value = shook(variable_[key]->value);
+  if (ahook) ahook(variable_[key]->value);
 }
 
 /*
  * Return true iff the named variable has substitute and/or assign hook
  * functions.
  */
-bool VariableHasHook(VariableSpace space, const char *name) {
-  struct _variable *current;
-
-  Assert(space);
+bool VariableSpace::VariableHasHook(const char *name) {
   Assert(name);
 
-  for (current = space->next; current; current = current->next) {
-    int cmp = strcmp(current->name, name);
-
-    if (cmp == 0) return (current->substitute_hook != NULL || current->assign_hook != NULL);
-    if (cmp > 0) break; /* it's not there */
+  if (auto kval = variable_.find(const_cast<char *>(name)); kval != variable_.end()) {
+    return (kval->second->substitute_hook != nullptr || kval->second->assign_hook != nullptr);
   }
 
   return false;
@@ -316,7 +233,7 @@ bool VariableHasHook(VariableSpace space, const char *name) {
 /*
  * Convenience function to set a variable's value to "on".
  */
-bool SetVariableBool(VariableSpace space, const char *name) { return SetVariable(space, name, "on"); }
+bool VariableSpace::SetVariableBool(const char *name) { return SetVariable(name, "on"); }
 
 /*
  * Attempt to delete variable.
@@ -324,7 +241,7 @@ bool SetVariableBool(VariableSpace space, const char *name) { return SetVariable
  * If unsuccessful, print a message and return "false".
  * Deleting a nonexistent variable is not an error.
  */
-bool DeleteVariable(VariableSpace space, const char *name) { return SetVariable(space, name, NULL); }
+bool VariableSpace::DeleteVariable(const char *name) { return SetVariable(name, nullptr); }
 
 /*
  * Emit error with suggestions for variables or commands
