@@ -195,9 +195,7 @@ void slashUsage(unsigned short int pager) {
   HELP0("  \\ev [VIEWNAME [LINE]]  edit view definition with external editor\n");
   HELP0("  \\p                     show the contents of the query buffer\n");
   HELP0("  \\r                     reset (clear) the query buffer\n");
-#ifdef USE_READLINE
   HELP0("  \\s [FILE]              display history or save it to file\n");
-#endif
   HELP0("  \\w FILE                write query buffer to file\n");
   HELP0("\n");
 

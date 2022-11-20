@@ -266,7 +266,6 @@ char *get_prompt(promptStatus_t status, ConditionalStack cstack) {
 
         case '[':
         case ']':
-#if defined(USE_READLINE) && defined(RL_PROMPT_START_IGNORE)
 
           /*
            * readline >=4.0 undocumented feature: non-printing
@@ -275,7 +274,6 @@ char *get_prompt(promptStatus_t status, ConditionalStack cstack) {
            */
           buf[0] = (*p == '[') ? RL_PROMPT_START_IGNORE : RL_PROMPT_END_IGNORE;
           buf[1] = '\0';
-#endif /* USE_READLINE */
           break;
 
         default:
@@ -303,16 +301,13 @@ char *get_prompt(promptStatus_t status, ConditionalStack cstack) {
 
     last_prompt1_width = 0;
     while (*p) {
-#if defined(USE_READLINE) && defined(RL_PROMPT_START_IGNORE)
       if (*p == RL_PROMPT_START_IGNORE) {
         visible = false;
         ++p;
       } else if (*p == RL_PROMPT_END_IGNORE) {
         visible = true;
         ++p;
-      } else
-#endif
-      {
+      } else {
         int chlen, chwidth;
 
         chlen = PQmblen(p, pset.encoding);

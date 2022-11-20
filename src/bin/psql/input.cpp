@@ -20,7 +20,6 @@
 
 /* Runtime options for turning off readline and history */
 /* (of course there is no runtime command for doing that :) */
-#ifdef USE_READLINE
 static bool useReadline;
 static bool useHistory;
 
@@ -37,7 +36,6 @@ static int history_lines_added;
  *	for this purpose.
  */
 #define NL_IN_HISTORY 0x01
-#endif
 
 static void finishInput(void);
 
@@ -55,7 +53,6 @@ static void finishInput(void);
  * Caller *must* have set up sigint_interrupt_jmp before calling.
  */
 char *gets_interactive(const char *prompt, PQExpBuffer query_buf) {
-#ifdef USE_READLINE
   if (useReadline) {
     char *result;
 
@@ -87,7 +84,6 @@ char *gets_interactive(const char *prompt, PQExpBuffer query_buf) {
 
     return result;
   }
-#endif
 
   fputs(prompt, stdout);
   fflush(stdout);
@@ -98,12 +94,10 @@ char *gets_interactive(const char *prompt, PQExpBuffer query_buf) {
  * Append the line to the history buffer, making sure there is a trailing '\n'
  */
 void pg_append_history(const char *s, PQExpBuffer history_buf) {
-#ifdef USE_READLINE
   if (useHistory && s) {
     appendPQExpBufferStr(history_buf, s);
     if (!s[0] || s[strlen(s) - 1] != '\n') appendPQExpBufferChar(history_buf, '\n');
   }
-#endif
 }
 
 /*
@@ -115,7 +109,6 @@ void pg_append_history(const char *s, PQExpBuffer history_buf) {
  * pg_append_history before we'll do anything.
  */
 void pg_send_history(PQExpBuffer history_buf) {
-#ifdef USE_READLINE
   static char *prev_hist = NULL;
 
   char *s = history_buf->data;
@@ -142,7 +135,6 @@ void pg_send_history(PQExpBuffer history_buf) {
   }
 
   resetPQExpBuffer(history_buf);
-#endif
 }
 
 /*
@@ -208,8 +200,6 @@ char *gets_fromFile(FILE *source) {
   return NULL;
 }
 
-#ifdef USE_READLINE
-
 /*
  * Macros to iterate over each element of the history list in order
  *
@@ -250,7 +240,6 @@ char *gets_fromFile(FILE *source) {
     history_set_pos(0);                                                                                             \
     for (VARNAME = current_history(); VARNAME != NULL; VARNAME = use_prev_ ? previous_history() : next_history()) { \
       (void)0
-
 #define END_ITERATE_HISTORY() \
   }                           \
   }                           \
@@ -287,7 +276,6 @@ static void decode_history(void) {
   }
   END_ITERATE_HISTORY();
 }
-#endif /* USE_READLINE */
 
 /*
  * Put any startup stuff related to input in here. It's good to maintain
@@ -296,7 +284,6 @@ static void decode_history(void) {
  * The only "flag" right now is 1 for use readline & history.
  */
 void initializeInput(int flags) {
-#ifdef USE_READLINE
   if (flags & 1) {
     const char *histfile;
     char home[MAXPGPATH];
@@ -339,7 +326,6 @@ void initializeInput(int flags) {
       decode_history();
     }
   }
-#endif
 
   atexit(finishInput);
 }
@@ -425,7 +411,6 @@ static bool saveHistory(char *fname, int max_lines) {
  * file is specified as /dev/tty.
  */
 bool printHistory(const char *fname, unsigned short int pager) {
-#ifdef USE_READLINE
   FILE *output;
   bool is_pager;
 
@@ -454,18 +439,12 @@ bool printHistory(const char *fname, unsigned short int pager) {
     fclose(output);
 
   return true;
-#else
-  PSQL_LOG_ERROR("history is not supported by this installation");
-  return false;
-#endif
 }
 
 static void finishInput(void) {
-#ifdef USE_READLINE
   if (useHistory && psql_history) {
     (void)saveHistory(psql_history, pset.histsize);
     free(psql_history);
     psql_history = NULL;
   }
-#endif
 }
